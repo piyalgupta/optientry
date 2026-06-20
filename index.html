@@ -430,11 +430,11 @@ function fmt(val,cur){
 // ── FETCH LAYER ───────────────────────────────────────────
 const SESSION=new Map();
 const ROUTES=[
-  u=>fetch(u,{cache:'no-store'}),
-  u=>fetch(`https://corsproxy.io/?${encodeURIComponent(u)}`),
-  u=>fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`),
-  u=>fetch(`https://thingproxy.freeboard.io/fetch/${u}`),
-  u=>fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`),
+  (u,o)=>fetch(u,o),
+  (u,o)=>fetch(`https://corsproxy.io/?${encodeURIComponent(u)}`,o),
+  (u,o)=>fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,o),
+  (u,o)=>fetch(`https://thingproxy.freeboard.io/fetch/${u}`,o),
+  (u,o)=>fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,o),
 ];
 const T=9000;
 
@@ -444,7 +444,11 @@ async function fetchYahoo(path,detailEl){
   const all=urls.flatMap(u=>ROUTES.map(fn=>{
     const ctrl=new AbortController();
     const tid=setTimeout(()=>ctrl.abort(),T);
-    return fn(u).then(r=>{clearTimeout(tid);if(!r.ok)throw new Error('bad');return r.json();}).catch(()=>Promise.reject());
+    // Pass the abort signal into the actual fetch so the timeout truly cancels
+    // a hung request; clear the timer on every outcome so it can't leak/fire late.
+    return fn(u,{cache:'no-store',signal:ctrl.signal})
+      .then(r=>{if(!r.ok)throw new Error('route '+r.status);return r.json();})
+      .finally(()=>clearTimeout(tid));
   }));
   return new Promise((res,rej)=>{
     let failed=0,done=false;
@@ -474,7 +478,11 @@ async function history(symbol,detailEl){
   const r=d?.chart?.result?.[0];
   if(!r)throw new Error(`No data for "${symbol}". Check the ticker and try again.`);
   const currency=r.meta?.currency||'USD';
-  const{timestamp,indicators:{quote:[q]}}=r;
+  const timestamp=r.timestamp;
+  const q=r.indicators?.quote?.[0];
+  if(!Array.isArray(timestamp)||!q||!Array.isArray(q.close)){
+    throw new Error(`No price history for "${symbol}". It may be delisted, an index, or not actively traded.`);
+  }
   const closes=[],highs=[],lows=[],labels=[],volumes=[];
   for(let i=0;i<timestamp.length;i++){
     const c=q.close[i],h=q.high[i],l=q.low[i],v=q.volume?.[i];
