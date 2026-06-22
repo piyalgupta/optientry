@@ -420,10 +420,13 @@ footer{font-size:11px;color:var(--fg3);padding-top:20px;border-top:1px solid var
 // ── CURRENCY ──────────────────────────────────────────────
 const SYM={USD:'$',INR:'₹',JPY:'¥',EUR:'€',GBP:'£',CNY:'¥',HKD:'HK$',KRW:'₩',CAD:'CA$',AUD:'A$',SGD:'S$',CHF:'CHF ',TWD:'NT$',BRL:'R$',MXN:'MX$',NOK:'kr ',SEK:'kr ',DKK:'kr ',ZAR:'R ',TRY:'₺',SAR:'SR ',AED:'AED ',THB:'฿',IDR:'Rp ',MYR:'RM '};
 const NO_DEC=['JPY','KRW','IDR'];
+// Single source of truth for how many decimals a currency shows — shared by
+// fmt() and the Chart.js tick/tooltip callbacks so they can never disagree.
+const decFor=cur=>NO_DEC.includes(cur)?0:2;
 function fmt(val,cur){
   if(val==null||isNaN(val))return'—';
   const s=SYM[cur]||(cur+' ');
-  const d=NO_DEC.includes(cur)?0:2;
+  const d=decFor(cur);
   return s+val.toLocaleString('en',{minimumFractionDigits:d,maximumFractionDigits:d});
 }
 
@@ -617,6 +620,10 @@ function calcScore(rsi,a20,a50,macdBullish,bbPct,stoch,volSig,streakDir){
   return Math.min(100,Math.max(0,Math.round(s)));
 }
 
+// Percentage return over the last `k` bars (null until enough history exists).
+// Replaces five hand-written ((cur-closes[n-1-k])/closes[n-1-k]*100) lines.
+function retN(c,k){return c.length>k?((c[c.length-1]-c[c.length-1-k])/c[c.length-1-k]*100):null;}
+
 // ── CHART ─────────────────────────────────────────────────
 let ci=null;
 let chartState=null;
@@ -643,10 +650,10 @@ function drawChart(labels,closes,s20,s50,bbU,bbL,currency){
       interaction:{mode:'index',intersect:false},
       plugins:{
         legend:{labels:{color:tc,font:{family:'Inter',size:mob?10:11},boxWidth:12,padding:mob?8:12,filter:i=>i.text!=='BB Lower'}},
-        tooltip:{callbacks:{label:ctx=>{if(ctx.dataset.label==='BB Lower')return null;const d=NO_DEC.includes(currency)?0:2;return` ${ctx.dataset.label}: ${SYM[currency]||''}${Number(ctx.parsed.y).toLocaleString('en',{maximumFractionDigits:d})}`;},itemSort:(a,b)=>a.datasetIndex===2?-1:1}}
+        tooltip:{callbacks:{label:ctx=>{if(ctx.dataset.label==='BB Lower')return null;const d=decFor(currency);return` ${ctx.dataset.label}: ${SYM[currency]||''}${Number(ctx.parsed.y).toLocaleString('en',{maximumFractionDigits:d})}`;},itemSort:(a,b)=>a.datasetIndex===2?-1:1}}
       },
       scales:{
-        y:{grid:{color:gc},border:{display:false},ticks:{color:tc,font:{size:mob?10:11},maxTicksLimit:mob?4:6,callback:v=>{const d=NO_DEC.includes(currency)?0:2;return(SYM[currency]||'')+Number(v).toLocaleString('en',{maximumFractionDigits:d});}}},
+        y:{grid:{color:gc},border:{display:false},ticks:{color:tc,font:{size:mob?10:11},maxTicksLimit:mob?4:6,callback:v=>{const d=decFor(currency);return(SYM[currency]||'')+Number(v).toLocaleString('en',{maximumFractionDigits:d});}}},
         x:{grid:{display:false},border:{display:false},ticks:{color:tc,font:{size:mob?10:11},maxRotation:0,maxTicksLimit:mob?4:7}},
       }
     }
@@ -657,6 +664,13 @@ function drawChart(labels,closes,s20,s50,bbU,bbL,currency){
 function setAcc(id,col){const el=document.getElementById(id);if(el)el.style.setProperty('--card-accent',col);}
 function setTxt(id,txt){const el=document.getElementById(id);if(el)el.textContent=txt;}
 function setHTML(id,html){const el=document.getElementById(id);if(el)el.innerHTML=html;}
+function setBar(id,pct,col){const el=document.getElementById(id);if(el)el.style.cssText=`width:${pct}%;background:${col}`;}
+// Threshold → status band, used to drive a card's accent colour, chip class and
+// bar fill from ONE decision instead of three duplicated ternaries. 'pos' = good
+// (green, value below `low`), 'neg' = bad (red, above `high`), else 'neu' (amber).
+const BAND_COLOR={pos:'var(--green)',neg:'var(--red)',neu:'var(--amber)'};
+const BAND_CHIP={pos:'c-g',neg:'c-r',neu:'c-a'};
+function band(v,low,high){return v<low?'pos':v>high?'neg':'neu';}
 
 // ── ANALYSE ───────────────────────────────────────────────
 // Monotonic request counter. Every analyse() call claims the next number;
@@ -709,11 +723,8 @@ async function analyse(symbol,dname){
     const volRatio=avgVol20>0?lastVol/avgVol20:1;
     const volSig=(volRatio>1.3&&a20)?1:(volRatio>1.3&&!a20)?-1:0;
 
-    const mom20=n>21?((cur-closes[n-22])/closes[n-22]*100):null;
-    const ret1w=n>5?((cur-closes[n-6])/closes[n-6]*100):null;
-    const ret2w=n>10?((cur-closes[n-11])/closes[n-11]*100):null;
-    const ret1m=n>21?((cur-closes[n-22])/closes[n-22]*100):null;
-    const ret3m=n>63?((cur-closes[n-64])/closes[n-64]*100):null;
+    const ret1w=retN(closes,5),ret2w=retN(closes,10),ret1m=retN(closes,21),ret3m=retN(closes,63);
+    const mom20=ret1m;// identical formula to the old 1-month return; computed once
 
     const sc=calcScore(rsi,a20,a50,macd?.bullish??null,bb.bbPct,stoch,volSig,streak.dir);
     const exp=res_>cur?((res_-cur)/cur*100).toFixed(1):'0';
@@ -766,10 +777,11 @@ async function analyse(symbol,dname){
     setHTML('scBreakdown',pills.map(p=>`<div class="sc-pill ${p.c}">${p.l}</div>`).join(''));
 
     // ── RSI ────────────────────────────────────────────
-    setAcc('hc-rsi',rsi<40?'var(--green)':rsi>60?'var(--red)':'var(--amber)');
+    const rsiB=band(rsi,40,60);
+    setAcc('hc-rsi',BAND_COLOR[rsiB]);
     const rsiLabel=rsi<30?'On Sale 🟢':rsi<40?'Cooling 🟡':rsi>70?'Overheated 🔴':rsi>60?'Warm 🟡':'Normal';
-    setHTML('dRsi',`${rsi.toFixed(0)}/100 <span class="chip ${rsi<40?'c-g':rsi>60?'c-r':'c-a'}">${rsiLabel}</span>`);
-    document.getElementById('dRsiBar').style.cssText=`width:${rsi}%;background:${rsi<40?'var(--green)':rsi>60?'var(--red)':'var(--amber)'}`;
+    setHTML('dRsi',`${rsi.toFixed(0)}/100 <span class="chip ${BAND_CHIP[rsiB]}">${rsiLabel}</span>`);
+    setBar('dRsiBar',rsi,BAND_COLOR[rsiB]);
     setTxt('dRsiDesc',rsi<30?'Think of this like a clearance sale. Fewer people are buying than usual — which historically is one of the best times to enter quietly.'
       :rsi<40?'The rush has calmed. The stock is cooling off and may be setting up for a bounce. Keep an eye on it.'
       :rsi>70?'Everyone is rushing in right now. When a stock gets this popular this fast, a drop often follows. Patience pays.'
@@ -808,10 +820,11 @@ async function analyse(symbol,dname){
     }
 
     // ── BOLLINGER BANDS ────────────────────────────────
+    const bbB=band(bb.bbPct,35,65);
     const bbL=bb.bbPct<25?'Very Cheap 🟢':bb.bbPct<45?'Cheap':bb.bbPct>75?'Very Pricey 🔴':bb.bbPct>55?'Pricey':'Normal';
-    setAcc('hc-bb',bb.bbPct<35?'var(--green)':bb.bbPct>65?'var(--red)':'var(--amber)');
-    setHTML('dBb',`${bb.bbPct.toFixed(0)}% of range <span class="chip ${bb.bbPct<35?'c-g':bb.bbPct>65?'c-r':'c-a'}">${bbL}</span>`);
-    document.getElementById('dBbBar').style.cssText=`width:${bb.bbPct}%;background:${bb.bbPct<35?'var(--green)':bb.bbPct>65?'var(--red)':'var(--amber)'}`;
+    setAcc('hc-bb',BAND_COLOR[bbB]);
+    setHTML('dBb',`${bb.bbPct.toFixed(0)}% of range <span class="chip ${BAND_CHIP[bbB]}">${bbL}</span>`);
+    setBar('dBbBar',bb.bbPct,BAND_COLOR[bbB]);
     setTxt('dBbDesc',bb.bbPct<20?`The stock is pressing the bottom of its normal range (${fmt(bb.bbL,currency)}). Imagine it like a coiled spring — statistically, prices tend to bounce from here.`
       :bb.bbPct>80?`The stock is pressing the top of its normal range (${fmt(bb.bbU,currency)}). Like a rubber band stretched too far — it often snaps back down. Risky to buy here.`
       :`Price is in the comfortable middle of its normal range — between ${fmt(bb.bbL,currency)} and ${fmt(bb.bbU,currency)}. No extreme reading either way.`);
@@ -832,9 +845,10 @@ async function analyse(symbol,dname){
     setTxt('dS50Action',a50?'✅ Big-picture trend intact. Supports buying on dips.':'🚫 Long-term trend broken. Extra caution needed.');
 
     // ── STOCHASTIC ─────────────────────────────────────
-    setAcc('hc-stoch',stoch<30?'var(--green)':stoch>70?'var(--red)':'var(--amber)');
-    setHTML('dStoch',`${stoch.toFixed(0)}/100 <span class="chip ${stoch<30?'c-g':stoch>70?'c-r':'c-a'}">${stoch<25?'Oversold 🟢':stoch>75?'Overbought 🔴':'Normal'}</span>`);
-    document.getElementById('dStochBar').style.cssText=`width:${stoch}%;background:${stoch<30?'var(--green)':stoch>70?'var(--red)':'var(--amber)'}`;
+    const stochB=band(stoch,30,70);
+    setAcc('hc-stoch',BAND_COLOR[stochB]);
+    setHTML('dStoch',`${stoch.toFixed(0)}/100 <span class="chip ${BAND_CHIP[stochB]}">${stoch<25?'Oversold 🟢':stoch>75?'Overbought 🔴':'Normal'}</span>`);
+    setBar('dStochBar',stoch,BAND_COLOR[stochB]);
     setTxt('dStochDesc',stoch<25?`The stock is near the bottom of where it has traded over the past 2 weeks. Think of it like a spring compressed tight — there's potential energy for a bounce. A second signal confirming cheap conditions.`
       :stoch>75?`The stock is near the top of its recent trading range. It's getting tired. This second indicator confirms what RSI is saying: the stock is stretched upward.`
       :`In the middle of its recent range. No strong reading — use RSI and MACD as the main guides.`);
