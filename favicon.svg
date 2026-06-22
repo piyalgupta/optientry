@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="OptiEntry">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#12161c"/>
+      <stop offset="1" stop-color="#0a0a0a"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+  <!-- ascending bars: the OptiEntry mark -->
+  <rect x="9"  y="38" width="9" height="17" rx="2.5" fill="#468DA3"/>
+  <rect x="21" y="29" width="9" height="26" rx="2.5" fill="#0A98D9"/>
+  <rect x="33" y="19" width="9" height="36" rx="2.5" fill="#00F0FF"/>
+  <rect x="45" y="9"  width="9" height="46" rx="2.5" fill="#C5062A"/>
+  <!-- gold entry-timing trend line -->
+  <polyline points="13,42 25,33 37,23 49,13" fill="none" stroke="#fbbf24" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="49" cy="13" r="3.6" fill="#fbbf24"/>
+</svg>
