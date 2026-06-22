@@ -431,7 +431,9 @@ function fmt(val,cur){
 }
 
 // ── FETCH LAYER ───────────────────────────────────────────
-const SESSION=new Map();
+const SESSION=new Map();          // key → {data, ts}
+const CACHE_TTL=5*60*1000;        // 5 min — a timing tool shouldn't serve all-session-stale prices
+let currentAC=null;               // AbortController of the in-flight analysis (superseded → aborted)
 const ROUTES=[
   (u,o)=>fetch(u,o),
   (u,o)=>fetch(`https://corsproxy.io/?${encodeURIComponent(u)}`,o),
@@ -441,12 +443,15 @@ const ROUTES=[
 ];
 const T=9000;
 
-async function fetchYahoo(path,detailEl){
+async function fetchYahoo(path,detailEl,parentSignal){
   if(detailEl)detailEl.textContent='Fetching via fastest available route…';
   const urls=[`https://query1.finance.yahoo.com${path}`,`https://query2.finance.yahoo.com${path}`];
   const all=urls.flatMap(u=>ROUTES.map(fn=>{
     const ctrl=new AbortController();
     const tid=setTimeout(()=>ctrl.abort(),T);
+    // Abort this route when the per-request timeout fires OR when a newer
+    // analysis supersedes this one (parentSignal), so stale work stops promptly.
+    if(parentSignal){parentSignal.aborted?ctrl.abort():parentSignal.addEventListener('abort',()=>ctrl.abort(),{once:true});}
     // Pass the abort signal into the actual fetch so the timeout truly cancels
     // a hung request; clear the timer on every outcome so it can't leak/fire late.
     return fn(u,{cache:'no-store',signal:ctrl.signal})
@@ -464,11 +469,12 @@ async function search(q){
   return(d.quotes||[]).filter(s=>s.symbol&&s.exchange).map(s=>({symbol:s.symbol,name:s.longname||s.shortname||s.symbol,exchange:s.exchange}));
 }
 
-async function history(symbol,detailEl){
+async function history(symbol,detailEl,signal){
   const key=symbol.toUpperCase();
-  if(SESSION.has(key)){
+  const hit=SESSION.get(key);
+  if(hit&&Date.now()-hit.ts<CACHE_TTL){
     if(detailEl){detailEl.textContent='Loaded from cache ✓';setTimeout(()=>{if(detailEl)detailEl.textContent='';},800);}
-    return SESSION.get(key);
+    return hit.data;
   }
   const end=Math.floor(Date.now()/1000),start=end-190*86400;
   const paths=[
@@ -477,7 +483,7 @@ async function history(symbol,detailEl){
     `/v7/finance/chart/${encodeURIComponent(symbol)}?range=6mo&interval=1d`,
   ];
   let d;
-  for(const path of paths){try{d=await fetchYahoo(path,detailEl);if(d?.chart?.result?.[0])break;}catch{}}
+  for(const path of paths){try{d=await fetchYahoo(path,detailEl,signal);if(d?.chart?.result?.[0])break;}catch{}}
   const r=d?.chart?.result?.[0];
   if(!r)throw new Error(`No data for "${symbol}". Check the ticker and try again.`);
   const currency=r.meta?.currency||'USD';
@@ -497,7 +503,7 @@ async function history(symbol,detailEl){
   }
   if(closes.length<20)throw new Error('Not enough data (need at least 20 trading days).');
   const result={closes,highs,lows,labels,volumes,currency};
-  SESSION.set(key,result);
+  SESSION.set(key,{data:result,ts:Date.now()});
   if(detailEl)detailEl.textContent='';
   return result;
 }
@@ -690,6 +696,8 @@ function band(v,low,high){return v<low?'pos':v>high?'neg':'neu';}
 let reqSeq=0;
 async function analyse(symbol,dname){
   const myReq=++reqSeq;
+  if(currentAC)currentAC.abort();          // cancel any still-in-flight previous analysis
+  const ac=currentAC=new AbortController();
   const elLoad=document.getElementById('sLoad');
   const elDetail=document.getElementById('sLoadDetail');
   const elErr=document.getElementById('sErr');
@@ -702,7 +710,7 @@ async function analyse(symbol,dname){
   elDetail.textContent='';
 
   try{
-    const data=await history(symbol,elDetail);
+    const data=await history(symbol,elDetail,ac.signal);
     // Stale-response guard: a newer analyse() started while we were fetching,
     // so discard this result instead of rendering the wrong stock.
     if(myReq!==reqSeq)return;
