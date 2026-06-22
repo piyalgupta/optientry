@@ -659,7 +659,14 @@ function setTxt(id,txt){const el=document.getElementById(id);if(el)el.textConten
 function setHTML(id,html){const el=document.getElementById(id);if(el)el.innerHTML=html;}
 
 // ── ANALYSE ───────────────────────────────────────────────
+// Monotonic request counter. Every analyse() call claims the next number;
+// only the call whose number still matches `reqSeq` when its data arrives is
+// allowed to touch the DOM. This prevents an earlier-but-slower request
+// (e.g. the auto-loaded NVDA) from overwriting the stock the user actually
+// asked for last — the classic "I searched X but the page shows Y" bug.
+let reqSeq=0;
 async function analyse(symbol,dname){
+  const myReq=++reqSeq;
   const elLoad=document.getElementById('sLoad');
   const elDetail=document.getElementById('sLoadDetail');
   const elErr=document.getElementById('sErr');
@@ -672,7 +679,11 @@ async function analyse(symbol,dname){
   elDetail.textContent='';
 
   try{
-    const{closes,highs,lows,labels,volumes,currency}=await history(symbol,elDetail);
+    const data=await history(symbol,elDetail);
+    // Stale-response guard: a newer analyse() started while we were fetching,
+    // so discard this result instead of rendering the wrong stock.
+    if(myReq!==reqSeq)return;
+    const{closes,highs,lows,labels,volumes,currency}=data;
     const n=closes.length;
     const cur=closes[n-1],prev=closes[n-2];
     const chg=(cur-prev)/prev*100;
@@ -950,6 +961,9 @@ async function analyse(symbol,dname){
     elRes.style.display='block';
 
   }catch(err){
+    // Same guard: don't let a superseded request's failure clobber the
+    // current result or re-show the error/loading state out of order.
+    if(myReq!==reqSeq)return;
     elLoad.style.display='none';
     document.getElementById('sErr').textContent=err.message||'Something went wrong. Please try again.';
     document.getElementById('sErr').style.display='block';
