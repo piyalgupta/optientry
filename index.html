@@ -4,6 +4,24 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>OptiEntry — Stock Timing</title>
+<meta name="description" content="Search any stock and get an instant, plain-English Buy, Hold or Sell timing verdict — no finance degree needed. US, India (NSE/BSE), Japan, Europe and most global exchanges.">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.png" sizes="any">
+<link rel="apple-touch-icon" href="favicon.png">
+<!-- Open Graph / social preview -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OptiEntry">
+<meta property="og:title" content="OptiEntry — Stock Timing">
+<meta property="og:description" content="A plain-English Buy, Hold or Sell timing verdict for any stock — no finance degree needed.">
+<meta property="og:image" content="og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="OptiEntry — plain-English Buy, Hold or Sell timing for any stock">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="OptiEntry — Stock Timing">
+<meta name="twitter:description" content="A plain-English Buy, Hold or Sell timing verdict for any stock — no finance degree needed.">
+<meta name="twitter:image" content="og-image.png">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -420,15 +438,20 @@ footer{font-size:11px;color:var(--fg3);padding-top:20px;border-top:1px solid var
 // ── CURRENCY ──────────────────────────────────────────────
 const SYM={USD:'$',INR:'₹',JPY:'¥',EUR:'€',GBP:'£',CNY:'¥',HKD:'HK$',KRW:'₩',CAD:'CA$',AUD:'A$',SGD:'S$',CHF:'CHF ',TWD:'NT$',BRL:'R$',MXN:'MX$',NOK:'kr ',SEK:'kr ',DKK:'kr ',ZAR:'R ',TRY:'₺',SAR:'SR ',AED:'AED ',THB:'฿',IDR:'Rp ',MYR:'RM '};
 const NO_DEC=['JPY','KRW','IDR'];
+// Single source of truth for how many decimals a currency shows — shared by
+// fmt() and the Chart.js tick/tooltip callbacks so they can never disagree.
+const decFor=cur=>NO_DEC.includes(cur)?0:2;
 function fmt(val,cur){
   if(val==null||isNaN(val))return'—';
   const s=SYM[cur]||(cur+' ');
-  const d=NO_DEC.includes(cur)?0:2;
+  const d=decFor(cur);
   return s+val.toLocaleString('en',{minimumFractionDigits:d,maximumFractionDigits:d});
 }
 
 // ── FETCH LAYER ───────────────────────────────────────────
-const SESSION=new Map();
+const SESSION=new Map();          // key → {data, ts}
+const CACHE_TTL=5*60*1000;        // 5 min — a timing tool shouldn't serve all-session-stale prices
+let currentAC=null;               // AbortController of the in-flight analysis (superseded → aborted)
 const ROUTES=[
   (u,o)=>fetch(u,o),
   (u,o)=>fetch(`https://corsproxy.io/?${encodeURIComponent(u)}`,o),
@@ -438,12 +461,15 @@ const ROUTES=[
 ];
 const T=9000;
 
-async function fetchYahoo(path,detailEl){
+async function fetchYahoo(path,detailEl,parentSignal){
   if(detailEl)detailEl.textContent='Fetching via fastest available route…';
   const urls=[`https://query1.finance.yahoo.com${path}`,`https://query2.finance.yahoo.com${path}`];
   const all=urls.flatMap(u=>ROUTES.map(fn=>{
     const ctrl=new AbortController();
     const tid=setTimeout(()=>ctrl.abort(),T);
+    // Abort this route when the per-request timeout fires OR when a newer
+    // analysis supersedes this one (parentSignal), so stale work stops promptly.
+    if(parentSignal){parentSignal.aborted?ctrl.abort():parentSignal.addEventListener('abort',()=>ctrl.abort(),{once:true});}
     // Pass the abort signal into the actual fetch so the timeout truly cancels
     // a hung request; clear the timer on every outcome so it can't leak/fire late.
     return fn(u,{cache:'no-store',signal:ctrl.signal})
@@ -461,11 +487,12 @@ async function search(q){
   return(d.quotes||[]).filter(s=>s.symbol&&s.exchange).map(s=>({symbol:s.symbol,name:s.longname||s.shortname||s.symbol,exchange:s.exchange}));
 }
 
-async function history(symbol,detailEl){
+async function history(symbol,detailEl,signal){
   const key=symbol.toUpperCase();
-  if(SESSION.has(key)){
+  const hit=SESSION.get(key);
+  if(hit&&Date.now()-hit.ts<CACHE_TTL){
     if(detailEl){detailEl.textContent='Loaded from cache ✓';setTimeout(()=>{if(detailEl)detailEl.textContent='';},800);}
-    return SESSION.get(key);
+    return hit.data;
   }
   const end=Math.floor(Date.now()/1000),start=end-190*86400;
   const paths=[
@@ -474,7 +501,7 @@ async function history(symbol,detailEl){
     `/v7/finance/chart/${encodeURIComponent(symbol)}?range=6mo&interval=1d`,
   ];
   let d;
-  for(const path of paths){try{d=await fetchYahoo(path,detailEl);if(d?.chart?.result?.[0])break;}catch{}}
+  for(const path of paths){try{d=await fetchYahoo(path,detailEl,signal);if(d?.chart?.result?.[0])break;}catch{}}
   const r=d?.chart?.result?.[0];
   if(!r)throw new Error(`No data for "${symbol}". Check the ticker and try again.`);
   const currency=r.meta?.currency||'USD';
@@ -494,7 +521,7 @@ async function history(symbol,detailEl){
   }
   if(closes.length<20)throw new Error('Not enough data (need at least 20 trading days).');
   const result={closes,highs,lows,labels,volumes,currency};
-  SESSION.set(key,result);
+  SESSION.set(key,{data:result,ts:Date.now()});
   if(detailEl)detailEl.textContent='';
   return result;
 }
@@ -517,10 +544,15 @@ function calcRSI(p,n=14){
 }
 
 function calcSMA(p,n){
-  return p.map((_,i)=>{
-    if(i<n-1)return null;
-    let s=0;for(let j=i-n+1;j<=i;j++)s+=p[j];return s/n;
-  });
+  // Rolling sum: O(n) instead of O(n·window). Same windows, same null warmup.
+  const out=new Array(p.length).fill(null);
+  let sum=0;
+  for(let i=0;i<p.length;i++){
+    sum+=p[i];
+    if(i>=n)sum-=p[i-n];
+    if(i>=n-1)out[i]=sum/n;
+  }
+  return out;
 }
 
 function calcEMA(p,n){
@@ -617,6 +649,10 @@ function calcScore(rsi,a20,a50,macdBullish,bbPct,stoch,volSig,streakDir){
   return Math.min(100,Math.max(0,Math.round(s)));
 }
 
+// Percentage return over the last `k` bars (null until enough history exists).
+// Replaces five hand-written ((cur-closes[n-1-k])/closes[n-1-k]*100) lines.
+function retN(c,k){return c.length>k?((c[c.length-1]-c[c.length-1-k])/c[c.length-1-k]*100):null;}
+
 // ── CHART ─────────────────────────────────────────────────
 let ci=null;
 let chartState=null;
@@ -643,10 +679,10 @@ function drawChart(labels,closes,s20,s50,bbU,bbL,currency){
       interaction:{mode:'index',intersect:false},
       plugins:{
         legend:{labels:{color:tc,font:{family:'Inter',size:mob?10:11},boxWidth:12,padding:mob?8:12,filter:i=>i.text!=='BB Lower'}},
-        tooltip:{callbacks:{label:ctx=>{if(ctx.dataset.label==='BB Lower')return null;const d=NO_DEC.includes(currency)?0:2;return` ${ctx.dataset.label}: ${SYM[currency]||''}${Number(ctx.parsed.y).toLocaleString('en',{maximumFractionDigits:d})}`;},itemSort:(a,b)=>a.datasetIndex===2?-1:1}}
+        tooltip:{callbacks:{label:ctx=>{if(ctx.dataset.label==='BB Lower')return null;const d=decFor(currency);return` ${ctx.dataset.label}: ${SYM[currency]||''}${Number(ctx.parsed.y).toLocaleString('en',{maximumFractionDigits:d})}`;},itemSort:(a,b)=>a.datasetIndex===2?-1:1}}
       },
       scales:{
-        y:{grid:{color:gc},border:{display:false},ticks:{color:tc,font:{size:mob?10:11},maxTicksLimit:mob?4:6,callback:v=>{const d=NO_DEC.includes(currency)?0:2;return(SYM[currency]||'')+Number(v).toLocaleString('en',{maximumFractionDigits:d});}}},
+        y:{grid:{color:gc},border:{display:false},ticks:{color:tc,font:{size:mob?10:11},maxTicksLimit:mob?4:6,callback:v=>{const d=decFor(currency);return(SYM[currency]||'')+Number(v).toLocaleString('en',{maximumFractionDigits:d});}}},
         x:{grid:{display:false},border:{display:false},ticks:{color:tc,font:{size:mob?10:11},maxRotation:0,maxTicksLimit:mob?4:7}},
       }
     }
@@ -654,9 +690,20 @@ function drawChart(labels,closes,s20,s50,bbU,bbL,currency){
 }
 
 // ── HELPER: set card accent ───────────────────────────────
-function setAcc(id,col){const el=document.getElementById(id);if(el)el.style.setProperty('--card-accent',col);}
-function setTxt(id,txt){const el=document.getElementById(id);if(el)el.textContent=txt;}
-function setHTML(id,html){const el=document.getElementById(id);if(el)el.innerHTML=html;}
+// Result-panel nodes are static (the script runs after them), so cache lookups
+// instead of re-querying the DOM on every one of the ~60 setX calls per render.
+const _elCache=new Map();
+function el(id){if(!_elCache.has(id))_elCache.set(id,document.getElementById(id));return _elCache.get(id);}
+function setAcc(id,col){const e=el(id);if(e)e.style.setProperty('--card-accent',col);}
+function setTxt(id,txt){const e=el(id);if(e)e.textContent=txt;}
+function setHTML(id,html){const e=el(id);if(e)e.innerHTML=html;}
+function setBar(id,pct,col){const e=el(id);if(e)e.style.cssText=`width:${pct}%;background:${col}`;}
+// Threshold → status band, used to drive a card's accent colour, chip class and
+// bar fill from ONE decision instead of three duplicated ternaries. 'pos' = good
+// (green, value below `low`), 'neg' = bad (red, above `high`), else 'neu' (amber).
+const BAND_COLOR={pos:'var(--green)',neg:'var(--red)',neu:'var(--amber)'};
+const BAND_CHIP={pos:'c-g',neg:'c-r',neu:'c-a'};
+function band(v,low,high){return v<low?'pos':v>high?'neg':'neu';}
 
 // ── ANALYSE ───────────────────────────────────────────────
 // Monotonic request counter. Every analyse() call claims the next number;
@@ -667,6 +714,8 @@ function setHTML(id,html){const el=document.getElementById(id);if(el)el.innerHTM
 let reqSeq=0;
 async function analyse(symbol,dname){
   const myReq=++reqSeq;
+  if(currentAC)currentAC.abort();          // cancel any still-in-flight previous analysis
+  const ac=currentAC=new AbortController();
   const elLoad=document.getElementById('sLoad');
   const elDetail=document.getElementById('sLoadDetail');
   const elErr=document.getElementById('sErr');
@@ -679,11 +728,42 @@ async function analyse(symbol,dname){
   elDetail.textContent='';
 
   try{
-    const data=await history(symbol,elDetail);
+    const data=await history(symbol,elDetail,ac.signal);
     // Stale-response guard: a newer analyse() started while we were fetching,
     // so discard this result instead of rendering the wrong stock.
     if(myReq!==reqSeq)return;
-    const{closes,highs,lows,labels,volumes,currency}=data;
+    render(buildAnalysis(data,symbol,dname));
+    elLoad.style.display='none';
+    elRes.style.display='block';
+  }catch(err){
+    // Same guard: don't let a superseded request's failure clobber the
+    // current result or re-show the error/loading state out of order.
+    if(myReq!==reqSeq)return;
+    elLoad.style.display='none';
+    document.getElementById('sErr').textContent=err.message||'Something went wrong. Please try again.';
+    document.getElementById('sErr').style.display='block';
+  }
+}
+
+// ── VERDICT COPY ──────────────────────────────────────────
+// The Buy/Hold/Sell call plus its plain-English rationale, isolated from the
+// computation so the wording can be edited (or localised) without touching
+// logic. Strings are the previous inline block verbatim.
+function verdict(sc,rsi,a20,a50,sup,currency){
+  if(sc>=62)return{bsh:'BUY',bshCls:'buy',bshReason:rsi<40?`This stock is on sale. Fewer people are buying it than usual — historically, that's one of the best times to quietly enter. Score: ${sc}/100. Consider starting with a small amount.`
+    :a20&&a50?`The stock is rising steadily above both its short and long-term averages — a healthy pattern. Momentum is on your side. Score: ${sc}/100. Small buys in tranches make sense.`
+    :`Most signals favour buyers. Score: ${sc}/100. Conditions lean in your favour — not perfect, but a reasonable entry opportunity.`};
+  if(sc<=38)return{bsh:'SELL',bshCls:'sell',bshReason:rsi>70?`This stock is overheated — too many people have already jumped in. When everyone is rushing to buy, a drop often follows. Score: ${sc}/100. If you own it, consider taking profits now.`
+    :!a20&&!a50?`The price has fallen below both its short and long-term averages. Sellers are in control. Score: ${sc}/100. If you hold this stock, now may be the time to reduce your position.`
+    :`Most signals point downward. Score: ${sc}/100. The odds don't favour buyers right now. Sit on the sidelines until conditions improve.`};
+  return{bsh:'HOLD',bshCls:'hold',bshReason:`The signals are mixed — not clearly up or down. Score: ${sc}/100. If you already own this stock, hold and watch. If thinking of buying, wait for a clearer dip toward ${fmt(sup,currency)} before committing.`};
+}
+
+// Pure compute: market series → everything the view layer needs. Performs no
+// DOM access, so it can be unit-tested in isolation. Returns a plain object
+// whose keys match the names the renderer destructures below.
+function buildAnalysis(series,symbol,dname){
+    const{closes,highs,lows,labels,volumes,currency}=series;
     const n=closes.length;
     const cur=closes[n-1],prev=closes[n-2];
     const chg=(cur-prev)/prev*100;
@@ -709,11 +789,8 @@ async function analyse(symbol,dname){
     const volRatio=avgVol20>0?lastVol/avgVol20:1;
     const volSig=(volRatio>1.3&&a20)?1:(volRatio>1.3&&!a20)?-1:0;
 
-    const mom20=n>21?((cur-closes[n-22])/closes[n-22]*100):null;
-    const ret1w=n>5?((cur-closes[n-6])/closes[n-6]*100):null;
-    const ret2w=n>10?((cur-closes[n-11])/closes[n-11]*100):null;
-    const ret1m=n>21?((cur-closes[n-22])/closes[n-22]*100):null;
-    const ret3m=n>63?((cur-closes[n-64])/closes[n-64]*100):null;
+    const ret1w=retN(closes,5),ret2w=retN(closes,10),ret1m=retN(closes,21),ret3m=retN(closes,63);
+    const mom20=ret1m;// identical formula to the old 1-month return; computed once
 
     const sc=calcScore(rsi,a20,a50,macd?.bullish??null,bb.bbPct,stoch,volSig,streak.dir);
     const exp=res_>cur?((res_-cur)/cur*100).toFixed(1):'0';
@@ -721,21 +798,15 @@ async function analyse(symbol,dname){
     // ── BUY / SELL / HOLD ──────────────────────────────
     const bullArr=[(a20?1:0),(a50?1:0),(rsi<50?1:0),(mom20!==null&&mom20>0?1:0),(macd?.bullish?1:0),(stoch<50?1:0),(bb.bbPct<50?1:0),(volSig>=0?1:0)];
     const bullSigs=bullArr.reduce((a,b)=>a+b,0),total=8;
-    let bsh,bshCls,bshReason;
-    if(sc>=62){
-      bsh='BUY';bshCls='buy';
-      bshReason=rsi<40?`This stock is on sale. Fewer people are buying it than usual — historically, that's one of the best times to quietly enter. Score: ${sc}/100. Consider starting with a small amount.`
-        :a20&&a50?`The stock is rising steadily above both its short and long-term averages — a healthy pattern. Momentum is on your side. Score: ${sc}/100. Small buys in tranches make sense.`
-        :`Most signals favour buyers. Score: ${sc}/100. Conditions lean in your favour — not perfect, but a reasonable entry opportunity.`;
-    }else if(sc<=38){
-      bsh='SELL';bshCls='sell';
-      bshReason=rsi>70?`This stock is overheated — too many people have already jumped in. When everyone is rushing to buy, a drop often follows. Score: ${sc}/100. If you own it, consider taking profits now.`
-        :!a20&&!a50?`The price has fallen below both its short and long-term averages. Sellers are in control. Score: ${sc}/100. If you hold this stock, now may be the time to reduce your position.`
-        :`Most signals point downward. Score: ${sc}/100. The odds don't favour buyers right now. Sit on the sidelines until conditions improve.`;
-    }else{
-      bsh='HOLD';bshCls='hold';
-      bshReason=`The signals are mixed — not clearly up or down. Score: ${sc}/100. If you already own this stock, hold and watch. If thinking of buying, wait for a clearer dip toward ${fmt(sup,currency)} before committing.`;
-    }
+    const{bsh,bshCls,bshReason}=verdict(sc,rsi,a20,a50,sup,currency);
+
+    return{closes,highs,lows,labels,volumes,currency,n,cur,prev,chg,rsi,s20a,s50a,s20,s50,a20,a50,sup,res_,macd,bb,atr,atrPct,stoch,cross,streak,best,lo52,hi52,pos52,hasVol,avgVol20,lastVol,volRatio,volSig,ret1w,ret2w,ret1m,ret3m,mom20,sc,exp,bullArr,bullSigs,total,bsh,bshCls,bshReason,symbol,dname};
+}
+
+// Pure DOM rendering of a built analysis — no math, no network. Destructures
+// the exact same names buildAnalysis() returns, so the body below is unchanged.
+function render(A){
+    const{closes,highs,lows,labels,volumes,currency,n,cur,prev,chg,rsi,s20a,s50a,s20,s50,a20,a50,sup,res_,macd,bb,atr,atrPct,stoch,cross,streak,best,lo52,hi52,pos52,hasVol,avgVol20,lastVol,volRatio,volSig,ret1w,ret2w,ret1m,ret3m,mom20,sc,exp,bullArr,bullSigs,total,bsh,bshCls,bshReason,symbol,dname}=A;
 
     // Populate header
     setTxt('rSym',symbol);setTxt('rName',dname||symbol);
@@ -766,10 +837,11 @@ async function analyse(symbol,dname){
     setHTML('scBreakdown',pills.map(p=>`<div class="sc-pill ${p.c}">${p.l}</div>`).join(''));
 
     // ── RSI ────────────────────────────────────────────
-    setAcc('hc-rsi',rsi<40?'var(--green)':rsi>60?'var(--red)':'var(--amber)');
+    const rsiB=band(rsi,40,60);
+    setAcc('hc-rsi',BAND_COLOR[rsiB]);
     const rsiLabel=rsi<30?'On Sale 🟢':rsi<40?'Cooling 🟡':rsi>70?'Overheated 🔴':rsi>60?'Warm 🟡':'Normal';
-    setHTML('dRsi',`${rsi.toFixed(0)}/100 <span class="chip ${rsi<40?'c-g':rsi>60?'c-r':'c-a'}">${rsiLabel}</span>`);
-    document.getElementById('dRsiBar').style.cssText=`width:${rsi}%;background:${rsi<40?'var(--green)':rsi>60?'var(--red)':'var(--amber)'}`;
+    setHTML('dRsi',`${rsi.toFixed(0)}/100 <span class="chip ${BAND_CHIP[rsiB]}">${rsiLabel}</span>`);
+    setBar('dRsiBar',rsi,BAND_COLOR[rsiB]);
     setTxt('dRsiDesc',rsi<30?'Think of this like a clearance sale. Fewer people are buying than usual — which historically is one of the best times to enter quietly.'
       :rsi<40?'The rush has calmed. The stock is cooling off and may be setting up for a bounce. Keep an eye on it.'
       :rsi>70?'Everyone is rushing in right now. When a stock gets this popular this fast, a drop often follows. Patience pays.'
@@ -808,10 +880,11 @@ async function analyse(symbol,dname){
     }
 
     // ── BOLLINGER BANDS ────────────────────────────────
+    const bbB=band(bb.bbPct,35,65);
     const bbL=bb.bbPct<25?'Very Cheap 🟢':bb.bbPct<45?'Cheap':bb.bbPct>75?'Very Pricey 🔴':bb.bbPct>55?'Pricey':'Normal';
-    setAcc('hc-bb',bb.bbPct<35?'var(--green)':bb.bbPct>65?'var(--red)':'var(--amber)');
-    setHTML('dBb',`${bb.bbPct.toFixed(0)}% of range <span class="chip ${bb.bbPct<35?'c-g':bb.bbPct>65?'c-r':'c-a'}">${bbL}</span>`);
-    document.getElementById('dBbBar').style.cssText=`width:${bb.bbPct}%;background:${bb.bbPct<35?'var(--green)':bb.bbPct>65?'var(--red)':'var(--amber)'}`;
+    setAcc('hc-bb',BAND_COLOR[bbB]);
+    setHTML('dBb',`${bb.bbPct.toFixed(0)}% of range <span class="chip ${BAND_CHIP[bbB]}">${bbL}</span>`);
+    setBar('dBbBar',bb.bbPct,BAND_COLOR[bbB]);
     setTxt('dBbDesc',bb.bbPct<20?`The stock is pressing the bottom of its normal range (${fmt(bb.bbL,currency)}). Imagine it like a coiled spring — statistically, prices tend to bounce from here.`
       :bb.bbPct>80?`The stock is pressing the top of its normal range (${fmt(bb.bbU,currency)}). Like a rubber band stretched too far — it often snaps back down. Risky to buy here.`
       :`Price is in the comfortable middle of its normal range — between ${fmt(bb.bbL,currency)} and ${fmt(bb.bbU,currency)}. No extreme reading either way.`);
@@ -832,9 +905,10 @@ async function analyse(symbol,dname){
     setTxt('dS50Action',a50?'✅ Big-picture trend intact. Supports buying on dips.':'🚫 Long-term trend broken. Extra caution needed.');
 
     // ── STOCHASTIC ─────────────────────────────────────
-    setAcc('hc-stoch',stoch<30?'var(--green)':stoch>70?'var(--red)':'var(--amber)');
-    setHTML('dStoch',`${stoch.toFixed(0)}/100 <span class="chip ${stoch<30?'c-g':stoch>70?'c-r':'c-a'}">${stoch<25?'Oversold 🟢':stoch>75?'Overbought 🔴':'Normal'}</span>`);
-    document.getElementById('dStochBar').style.cssText=`width:${stoch}%;background:${stoch<30?'var(--green)':stoch>70?'var(--red)':'var(--amber)'}`;
+    const stochB=band(stoch,30,70);
+    setAcc('hc-stoch',BAND_COLOR[stochB]);
+    setHTML('dStoch',`${stoch.toFixed(0)}/100 <span class="chip ${BAND_CHIP[stochB]}">${stoch<25?'Oversold 🟢':stoch>75?'Overbought 🔴':'Normal'}</span>`);
+    setBar('dStochBar',stoch,BAND_COLOR[stochB]);
     setTxt('dStochDesc',stoch<25?`The stock is near the bottom of where it has traded over the past 2 weeks. Think of it like a spring compressed tight — there's potential energy for a bounce. A second signal confirming cheap conditions.`
       :stoch>75?`The stock is near the top of its recent trading range. It's getting tired. This second indicator confirms what RSI is saying: the stock is stretched upward.`
       :`In the middle of its recent range. No strong reading — use RSI and MACD as the main guides.`);
@@ -957,17 +1031,6 @@ async function analyse(symbol,dname){
     }
 
     drawChart(labels,closes,s20a,s50a,bb.upper,bb.lower,currency);
-    elLoad.style.display='none';
-    elRes.style.display='block';
-
-  }catch(err){
-    // Same guard: don't let a superseded request's failure clobber the
-    // current result or re-show the error/loading state out of order.
-    if(myReq!==reqSeq)return;
-    elLoad.style.display='none';
-    document.getElementById('sErr').textContent=err.message||'Something went wrong. Please try again.';
-    document.getElementById('sErr').style.display='block';
-  }
 }
 
 // ── HOVER / TAP CARD TOGGLE ──────────────────────────────
