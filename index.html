@@ -520,10 +520,15 @@ function calcRSI(p,n=14){
 }
 
 function calcSMA(p,n){
-  return p.map((_,i)=>{
-    if(i<n-1)return null;
-    let s=0;for(let j=i-n+1;j<=i;j++)s+=p[j];return s/n;
-  });
+  // Rolling sum: O(n) instead of O(n·window). Same windows, same null warmup.
+  const out=new Array(p.length).fill(null);
+  let sum=0;
+  for(let i=0;i<p.length;i++){
+    sum+=p[i];
+    if(i>=n)sum-=p[i-n];
+    if(i>=n-1)out[i]=sum/n;
+  }
+  return out;
 }
 
 function calcEMA(p,n){
@@ -661,10 +666,14 @@ function drawChart(labels,closes,s20,s50,bbU,bbL,currency){
 }
 
 // ── HELPER: set card accent ───────────────────────────────
-function setAcc(id,col){const el=document.getElementById(id);if(el)el.style.setProperty('--card-accent',col);}
-function setTxt(id,txt){const el=document.getElementById(id);if(el)el.textContent=txt;}
-function setHTML(id,html){const el=document.getElementById(id);if(el)el.innerHTML=html;}
-function setBar(id,pct,col){const el=document.getElementById(id);if(el)el.style.cssText=`width:${pct}%;background:${col}`;}
+// Result-panel nodes are static (the script runs after them), so cache lookups
+// instead of re-querying the DOM on every one of the ~60 setX calls per render.
+const _elCache=new Map();
+function el(id){if(!_elCache.has(id))_elCache.set(id,document.getElementById(id));return _elCache.get(id);}
+function setAcc(id,col){const e=el(id);if(e)e.style.setProperty('--card-accent',col);}
+function setTxt(id,txt){const e=el(id);if(e)e.textContent=txt;}
+function setHTML(id,html){const e=el(id);if(e)e.innerHTML=html;}
+function setBar(id,pct,col){const e=el(id);if(e)e.style.cssText=`width:${pct}%;background:${col}`;}
 // Threshold → status band, used to drive a card's accent colour, chip class and
 // bar fill from ONE decision instead of three duplicated ternaries. 'pos' = good
 // (green, value below `low`), 'neg' = bad (red, above `high`), else 'neu' (amber).
