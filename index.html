@@ -697,7 +697,24 @@ async function analyse(symbol,dname){
     // Stale-response guard: a newer analyse() started while we were fetching,
     // so discard this result instead of rendering the wrong stock.
     if(myReq!==reqSeq)return;
-    const{closes,highs,lows,labels,volumes,currency}=data;
+    render(buildAnalysis(data,symbol,dname));
+    elLoad.style.display='none';
+    elRes.style.display='block';
+  }catch(err){
+    // Same guard: don't let a superseded request's failure clobber the
+    // current result or re-show the error/loading state out of order.
+    if(myReq!==reqSeq)return;
+    elLoad.style.display='none';
+    document.getElementById('sErr').textContent=err.message||'Something went wrong. Please try again.';
+    document.getElementById('sErr').style.display='block';
+  }
+}
+
+// Pure compute: market series → everything the view layer needs. Performs no
+// DOM access, so it can be unit-tested in isolation. Returns a plain object
+// whose keys match the names the renderer destructures below.
+function buildAnalysis(series,symbol,dname){
+    const{closes,highs,lows,labels,volumes,currency}=series;
     const n=closes.length;
     const cur=closes[n-1],prev=closes[n-2];
     const chg=(cur-prev)/prev*100;
@@ -747,6 +764,14 @@ async function analyse(symbol,dname){
       bsh='HOLD';bshCls='hold';
       bshReason=`The signals are mixed — not clearly up or down. Score: ${sc}/100. If you already own this stock, hold and watch. If thinking of buying, wait for a clearer dip toward ${fmt(sup,currency)} before committing.`;
     }
+
+    return{closes,highs,lows,labels,volumes,currency,n,cur,prev,chg,rsi,s20a,s50a,s20,s50,a20,a50,sup,res_,macd,bb,atr,atrPct,stoch,cross,streak,best,lo52,hi52,pos52,hasVol,avgVol20,lastVol,volRatio,volSig,ret1w,ret2w,ret1m,ret3m,mom20,sc,exp,bullArr,bullSigs,total,bsh,bshCls,bshReason,symbol,dname};
+}
+
+// Pure DOM rendering of a built analysis — no math, no network. Destructures
+// the exact same names buildAnalysis() returns, so the body below is unchanged.
+function render(A){
+    const{closes,highs,lows,labels,volumes,currency,n,cur,prev,chg,rsi,s20a,s50a,s20,s50,a20,a50,sup,res_,macd,bb,atr,atrPct,stoch,cross,streak,best,lo52,hi52,pos52,hasVol,avgVol20,lastVol,volRatio,volSig,ret1w,ret2w,ret1m,ret3m,mom20,sc,exp,bullArr,bullSigs,total,bsh,bshCls,bshReason,symbol,dname}=A;
 
     // Populate header
     setTxt('rSym',symbol);setTxt('rName',dname||symbol);
@@ -971,17 +996,6 @@ async function analyse(symbol,dname){
     }
 
     drawChart(labels,closes,s20a,s50a,bb.upper,bb.lower,currency);
-    elLoad.style.display='none';
-    elRes.style.display='block';
-
-  }catch(err){
-    // Same guard: don't let a superseded request's failure clobber the
-    // current result or re-show the error/loading state out of order.
-    if(myReq!==reqSeq)return;
-    elLoad.style.display='none';
-    document.getElementById('sErr').textContent=err.message||'Something went wrong. Please try again.';
-    document.getElementById('sErr').style.display='block';
-  }
 }
 
 // ── HOVER / TAP CARD TOGGLE ──────────────────────────────
