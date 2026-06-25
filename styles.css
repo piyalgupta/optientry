@@ -154,18 +154,22 @@ header{margin-bottom:clamp(24px,5vw,48px)}
 .bsh-block.buy{--bsh-col:var(--green);border-color:color-mix(in srgb,var(--green) 45%,var(--brd));background:color-mix(in srgb,var(--green) 9%,var(--glass));box-shadow:var(--shadow),inset 0 1px 0 var(--hi),0 0 70px -26px var(--green)}
 .bsh-block.hold{--bsh-col:var(--amber);border-color:color-mix(in srgb,var(--amber) 45%,var(--brd));background:color-mix(in srgb,var(--amber) 9%,var(--glass));box-shadow:var(--shadow),inset 0 1px 0 var(--hi),0 0 70px -26px var(--amber)}
 .bsh-block.sell{--bsh-col:var(--red);border-color:color-mix(in srgb,var(--red) 45%,var(--brd));background:color-mix(in srgb,var(--red) 9%,var(--glass));box-shadow:var(--shadow),inset 0 1px 0 var(--hi),0 0 70px -26px var(--red)}
-/* split-flap "flipclock" verdict — JS injects one .flap tile per letter */
+/* split-flap "departures board" verdict — JS injects one .flap tile per letter
+   and drives the roll (see rollFlap in app.js); the CSS just supplies the
+   per-step flip keyframe and the colour of the tile that lands. */
 .bsh-word{display:inline-flex;justify-content:center;gap:clamp(5px,1.4vw,11px);perspective:760px;font-size:clamp(70px,17vw,108px);font-weight:900;letter-spacing:-.04em;line-height:1;margin-bottom:8px;min-height:1em}
 .flap{position:relative;flex:0 0 auto;display:flex;align-items:center;justify-content:center;min-width:.6em;padding:.02em .05em;color:var(--bsh-col,var(--fg));
   background:color-mix(in srgb,var(--bsh-col,var(--fg)) 13%,var(--glass-2));
   border:1px solid color-mix(in srgb,var(--bsh-col,var(--fg)) 32%,var(--brd));
   border-radius:.13em;box-shadow:0 .1em .26em -.06em rgba(0,0,0,.5),inset 0 .02em 0 var(--hi);
-  transform-origin:center;backface-visibility:hidden;
-  animation:flap-in .55s cubic-bezier(.34,1.4,.5,1) backwards;animation-delay:calc(var(--i) * .1s)}
+  transform-origin:center;backface-visibility:hidden}
 .flap::after{content:'';position:absolute;left:8%;right:8%;top:50%;height:2px;margin-top:-1px;pointer-events:none;opacity:.4;
   background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--bsh-col) 35%,#000),transparent)}
 .flap-glyph{display:block;text-shadow:0 .05em .16em color-mix(in srgb,var(--bsh-col) 50%,transparent)}
-@keyframes flap-in{0%{transform:rotateX(-90deg);opacity:0}45%{opacity:1}68%{transform:rotateX(10deg)}100%{transform:rotateX(0);opacity:1}}
+/* the tile the roll settled on gets a brief colour glow so the verdict "pops" */
+.flap-landed{box-shadow:0 .1em .26em -.06em rgba(0,0,0,.5),inset 0 .02em 0 var(--hi),0 0 1.1em -.18em var(--bsh-col,var(--fg));transition:box-shadow .35s ease}
+/* one flip of a single tile, replayed by JS on every step of the roll */
+@keyframes flap-roll{0%{transform:rotateX(-82deg);opacity:.5}55%{opacity:1}100%{transform:rotateX(0);opacity:1}}
 .bsh-count{font-size:clamp(11px,2vw,13px);font-weight:600;letter-spacing:.05em;opacity:.7;margin-bottom:10px;font-family:var(--mono)}
 .bsh-reason{font-size:clamp(13px,2.5vw,14.5px);color:var(--fg2);line-height:1.78;max-width:480px;margin:0 auto}
 

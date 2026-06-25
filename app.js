@@ -302,18 +302,47 @@ function el(id){if(!_elCache.has(id))_elCache.set(id,document.getElementById(id)
 function setAcc(id,col){const e=el(id);if(e)e.style.setProperty('--card-accent',col);}
 function setTxt(id,txt){const e=el(id);if(e)e.textContent=txt;}
 function setHTML(id,html){const e=el(id);if(e)e.innerHTML=html;}
-// Render the verdict as a cascade of split-flap tiles ("flipclock"). Rebuilding
-// the nodes restarts the CSS flip animation on every fresh analysis.
+// Render the verdict on a split-flap "departures board": each tile spins fast
+// through the alphabet, decelerates, and clicks into place on its target
+// letter — a slow, teasing reveal that keeps the reader guessing until the
+// last tile lands. Tiles start staggered so the board settles left-to-right.
+// Honours prefers-reduced-motion (instant, no roll) and cancels any roll still
+// running from a previous analysis before rebuilding the tiles.
+const FLAP_GLYPHS='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+let _flapTimers=[];
 function flipVerdict(word){
   const w=el('bshWord');if(!w)return;
+  _flapTimers.forEach(clearTimeout);_flapTimers=[];
   w.textContent='';
+  const reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches;
   [...String(word)].forEach((ch,i)=>{
-    const f=document.createElement('span');
-    f.className='flap';f.style.setProperty('--i',i);
-    const g=document.createElement('span');
-    g.className='flap-glyph';g.textContent=ch;
+    const f=document.createElement('span');f.className='flap';
+    const g=document.createElement('span');g.className='flap-glyph';
     f.appendChild(g);w.appendChild(f);
+    if(reduce){g.textContent=ch;return;}
+    rollFlap(f,g,ch,i);
   });
+}
+// Roll one tile from a fast spin to a gentle stop on `target`. The glyph walks
+// forward through the alphabet so the final two steps (…target-1, target) snap
+// cleanly into place; the gap between steps eases in (38ms → ~240ms) so the
+// roll visibly slows before it lands, and each step replays the flap keyframe
+// for a mechanical "clack".
+function rollFlap(tile,glyph,target,idx){
+  const steps=18,ti=FLAP_GLYPHS.indexOf(target.toUpperCase());
+  let k=0;
+  const tick=()=>{
+    const last=k===steps;
+    glyph.textContent=last?target
+      :(ti<0?FLAP_GLYPHS[(Math.random()*26)|0]:FLAP_GLYPHS[((ti-(steps-k))%26+26)%26]);
+    tile.style.animation='none';void tile.offsetWidth;   // restart the keyframe
+    tile.style.animation=`flap-roll ${last?300:150}ms cubic-bezier(.3,1.25,.5,1)`;
+    if(last){tile.classList.add('flap-landed');return;}
+    k++;
+    const p=k/steps;
+    _flapTimers.push(setTimeout(tick,38+205*p*p));
+  };
+  _flapTimers.push(setTimeout(tick,idx*160));            // left-to-right cascade
 }
 // HTML-escape untrusted strings (Yahoo search results) before injecting via
 // innerHTML — keeps markup in a ticker symbol or company name from breaking the
