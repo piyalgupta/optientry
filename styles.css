@@ -30,7 +30,7 @@
 
 /* ---- dark palette (system + explicit) ---- */
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#070912; --fg:#eef1f8; --fg2:#9aa3b8; --fg3:#5a6178;
+  --bg:#070912; --fg:#eef1f8; --fg2:#9aa3b8; --fg3:#838daa;
   --surface:rgba(255,255,255,.05);
   --line:rgba(255,255,255,.09);
   --glass:rgba(22,27,46,.5); --glass-2:rgba(30,35,56,.42);
@@ -39,7 +39,7 @@
   --green:#34d399; --red:#fb7185; --amber:#fbbf24;
 }}
 :root[data-theme="dark"]{
-  --bg:#070912; --fg:#eef1f8; --fg2:#9aa3b8; --fg3:#5a6178;
+  --bg:#070912; --fg:#eef1f8; --fg2:#9aa3b8; --fg3:#838daa;
   --surface:rgba(255,255,255,.05);
   --line:rgba(255,255,255,.09);
   --glass:rgba(22,27,46,.5); --glass-2:rgba(30,35,56,.42);
