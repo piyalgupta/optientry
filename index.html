@@ -34,13 +34,35 @@
 
 <header>
   <div class="logo-row">
-    <svg class="logo-icon" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="1" y="23" width="7" height="14" rx="2" fill="#468DA3"/>
-      <rect x="10" y="16" width="7" height="21" rx="2" fill="#0A98D9"/>
-      <rect x="19" y="8" width="7" height="29" rx="2" fill="#00F0FF"/>
-      <rect x="28" y="1" width="7" height="36" rx="2" fill="#C5062A"/>
-      <polyline points="4.5,21 13.5,14 22.5,6 31.5,0" stroke="#fbbf24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="31.5" cy="0" r="2.8" fill="#fbbf24"/>
+    <svg class="logo-icon" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <linearGradient id="lg-bg" x1=".15" y1="0" x2=".85" y2="1">
+          <stop offset="0" stop-color="#1b2440"/><stop offset=".55" stop-color="#0d1120"/><stop offset="1" stop-color="#07090f"/>
+        </linearGradient>
+        <radialGradient id="lg-glow" cx=".5" cy=".42" r=".62">
+          <stop offset="0" stop-color="#1f6fd0" stop-opacity=".42"/><stop offset="1" stop-color="#1f6fd0" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="lg-cool" x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0" stop-color="#1466D6"/><stop offset=".5" stop-color="#16A6E8"/><stop offset="1" stop-color="#7DEFFF"/>
+        </linearGradient>
+        <linearGradient id="lg-warm" x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0" stop-color="#F43F6E"/><stop offset=".5" stop-color="#FB8C3B"/><stop offset="1" stop-color="#FFD56A"/>
+        </linearGradient>
+        <radialGradient id="lg-gold" cx=".4" cy=".35" r=".75">
+          <stop offset="0" stop-color="#FFF6D8"/><stop offset=".45" stop-color="#FCC44D"/><stop offset="1" stop-color="#F59E0B"/>
+        </radialGradient>
+      </defs>
+      <rect width="64" height="64" rx="15" fill="url(#lg-bg)"/>
+      <rect width="64" height="64" rx="15" fill="url(#lg-glow)"/>
+      <rect x=".75" y=".75" width="62.5" height="62.5" rx="14.25" fill="none" stroke="#fff" stroke-opacity=".09"/>
+      <path d="M2 18 A15 15 0 0 1 32 1 A15 15 0 0 1 62 18" fill="none" stroke="#fff" stroke-opacity=".05" stroke-width="1.2"/>
+      <path d="M48.82 28.17 A17.5 17.5 0 1 1 35.64 15.88" fill="none" stroke="url(#lg-cool)" stroke-width="5.4" stroke-linecap="round"/>
+      <path d="M22.5 44 L44 22.4" fill="none" stroke="#0a0d18" stroke-width="9" stroke-linecap="round"/>
+      <path d="M22.5 44 L43.4 23" fill="none" stroke="url(#lg-warm)" stroke-width="4.8" stroke-linecap="round"/>
+      <path d="M51 15 L47.7 27.2 L38.9 18.5 Z" fill="url(#lg-warm)"/>
+      <circle cx="22.5" cy="44" r="6.4" fill="#F59E0B" fill-opacity=".18"/>
+      <circle cx="22.5" cy="44" r="4.5" fill="url(#lg-gold)"/>
+      <circle cx="22.5" cy="44" r="1.6" fill="#fff" fill-opacity=".92"/>
     </svg>
     <div class="logo-text"><span class="logo-opti">OPTI</span><span class="logo-entry">ENTRY</span></div>
   </div>
