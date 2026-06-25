@@ -1140,7 +1140,8 @@ dd.addEventListener('keydown',e=>{
   });
 })();
 
-window.addEventListener('load',()=>{inp.value='NVDA — NVIDIA Corp';analyse('NVDA','NVIDIA Corp');});
+// No default ticker — the search box starts blank and the user drives the first
+// analysis. (Previously auto-loaded NVDA on page load.)
 </script>
 </body>
 </html>
