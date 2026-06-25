@@ -743,15 +743,35 @@ dd.addEventListener('keydown',e=>{
 // ── THEME ─────────────────────────────────────────────────
 (function(){
   const btn=document.getElementById('themeBtn'),root=document.documentElement;
-  function isDark(){const t=root.getAttribute('data-theme');return t==='dark'?true:t==='light'?false:window.matchMedia('(prefers-color-scheme:dark)').matches;}
+  const mq=window.matchMedia('(prefers-color-scheme:dark)');
+  function isDark(){const t=root.getAttribute('data-theme');return t==='dark'?true:t==='light'?false:mq.matches;}
   const meta=document.querySelector('meta[name="theme-color"]');
   function apply(){const d=isDark();btn.textContent=d?'☀':'🌙';if(meta)meta.setAttribute('content',d?'#070912':'#eaeefb');}
+  // The frosted "glass" surfaces use backdrop-filter. When the theme flips,
+  // the CSS custom properties change but Safari/WebKit keep the already-
+  // rasterised backdrop layer of any on-screen glass element, so cards get
+  // stuck showing the *previous* theme (e.g. dark frosted cards + faded
+  // titles left over after switching to light). Briefly dropping the filter
+  // forces the compositor to discard and rebuild those layers against the new
+  // theme. See the `.theme-switching` rule in styles.css.
+  function repaintGlass(){
+    root.classList.add('theme-switching');
+    void root.offsetHeight;                       // flush the no-blur state
+    requestAnimationFrame(()=>requestAnimationFrame(()=>root.classList.remove('theme-switching')));
+  }
+  function redrawChart(){if(ci&&chartState){const s=chartState;drawChart(s.labels,s.closes,s.s20,s.s50,s.bbU,s.bbL,s.currency);}}
+  function refresh(){apply();repaintGlass();redrawChart();}
   apply();
   btn.addEventListener('click',()=>{
     root.setAttribute('data-theme',isDark()?'light':'dark');
-    apply();
-    if(ci&&chartState){const s=chartState;drawChart(s.labels,s.closes,s.s20,s.s50,s.bbU,s.bbL,s.currency);}
+    refresh();
   });
+  // In "auto" mode (no explicit data-theme) the OS flipping light/dark changes
+  // the CSS vars with no JS — so re-rasterise the glass on that event too,
+  // otherwise on-screen cards stay stuck in the old appearance.
+  const onSystem=()=>{if(!root.getAttribute('data-theme'))refresh();};
+  if(mq.addEventListener)mq.addEventListener('change',onSystem);
+  else if(mq.addListener)mq.addListener(onSystem);
 })();
 
 // No default ticker — the search box starts blank and the user drives the first

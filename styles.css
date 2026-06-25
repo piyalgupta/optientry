@@ -69,6 +69,24 @@
   box-shadow:var(--shadow), inset 0 1px 0 var(--hi);
 }
 
+/* While the theme is switching we drop backdrop-filter for one frame so
+   WebKit discards stale frosted layers and re-rasterises them against the new
+   theme (see repaintGlass() in app.js). The solid var(--glass) fallback below
+   already carries the correct new-theme colour, so there is no dark flash. */
+:root.theme-switching .glass,
+:root.theme-switching #inp,
+:root.theme-switching .dd,
+:root.theme-switching .s-err,
+:root.theme-switching .bsh-block,
+:root.theme-switching .hc-card,
+:root.theme-switching .plan,
+:root.theme-switching .bt,
+:root.theme-switching .ch-wrap,
+:root.theme-switching .theme-btn{
+  -webkit-backdrop-filter:none !important;
+  backdrop-filter:none !important;
+}
+
 /* ---- base + animated ambient mesh ---- */
 body{
   font-family:'Inter',sans-serif; background:var(--bg); color:var(--fg);
