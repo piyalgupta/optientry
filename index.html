@@ -697,6 +697,12 @@ function el(id){if(!_elCache.has(id))_elCache.set(id,document.getElementById(id)
 function setAcc(id,col){const e=el(id);if(e)e.style.setProperty('--card-accent',col);}
 function setTxt(id,txt){const e=el(id);if(e)e.textContent=txt;}
 function setHTML(id,html){const e=el(id);if(e)e.innerHTML=html;}
+// HTML-escape untrusted strings (Yahoo search results) before injecting via
+// innerHTML — keeps markup in a ticker symbol or company name from breaking the
+// layout or injecting nodes. Output round-trips cleanly through dataset, whose
+// reads decode the entities back to the original characters.
+const _ESC={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
+function esc(s){return String(s).replace(/[&<>"']/g,c=>_ESC[c]);}
 function setBar(id,pct,col){const e=el(id);if(e)e.style.cssText=`width:${pct}%;background:${col}`;}
 // Threshold → status band, used to drive a card's accent colour, chip class and
 // bar fill from ONE decision instead of three duplicated ternaries. 'pos' = good
@@ -749,11 +755,15 @@ async function analyse(symbol,dname){
 // The Buy/Hold/Sell call plus its plain-English rationale, isolated from the
 // computation so the wording can be edited (or localised) without touching
 // logic. Strings are the previous inline block verbatim.
+// Score bands: at/above BUY → buy, at/below SELL → sell, between → hold. Shared
+// by verdict() (the copy) and render() (the score-bar colour) so the words and
+// the colour can never disagree about where the cut-offs are.
+const VERDICT_BUY=62,VERDICT_SELL=38;
 function verdict(sc,rsi,a20,a50,sup,currency){
-  if(sc>=62)return{bsh:'BUY',bshCls:'buy',bshReason:rsi<40?`This stock is on sale. Fewer people are buying it than usual — historically, that's one of the best times to quietly enter. Score: ${sc}/100. Consider starting with a small amount.`
+  if(sc>=VERDICT_BUY)return{bsh:'BUY',bshCls:'buy',bshReason:rsi<40?`This stock is on sale. Fewer people are buying it than usual — historically, that's one of the best times to quietly enter. Score: ${sc}/100. Consider starting with a small amount.`
     :a20&&a50?`The stock is rising steadily above both its short and long-term averages — a healthy pattern. Momentum is on your side. Score: ${sc}/100. Small buys in tranches make sense.`
     :`Most signals favour buyers. Score: ${sc}/100. Conditions lean in your favour — not perfect, but a reasonable entry opportunity.`};
-  if(sc<=38)return{bsh:'SELL',bshCls:'sell',bshReason:rsi>70?`This stock is overheated — too many people have already jumped in. When everyone is rushing to buy, a drop often follows. Score: ${sc}/100. If you own it, consider taking profits now.`
+  if(sc<=VERDICT_SELL)return{bsh:'SELL',bshCls:'sell',bshReason:rsi>70?`This stock is overheated — too many people have already jumped in. When everyone is rushing to buy, a drop often follows. Score: ${sc}/100. If you own it, consider taking profits now.`
     :!a20&&!a50?`The price has fallen below both its short and long-term averages. Sellers are in control. Score: ${sc}/100. If you hold this stock, now may be the time to reduce your position.`
     :`Most signals point downward. Score: ${sc}/100. The odds don't favour buyers right now. Sit on the sidelines until conditions improve.`};
   return{bsh:'HOLD',bshCls:'hold',bshReason:`The signals are mixed — not clearly up or down. Score: ${sc}/100. If you already own this stock, hold and watch. If thinking of buying, wait for a clearer dip toward ${fmt(sup,currency)} before committing.`};
@@ -823,7 +833,7 @@ function render(A){
     setTxt('bshReason',bshReason);
 
     // Score
-    const scCol=sc>=62?'var(--green)':sc<=38?'var(--red)':'var(--amber)';
+    const scCol=sc>=VERDICT_BUY?'var(--green)':sc<=VERDICT_SELL?'var(--red)':'var(--amber)';
     document.getElementById('scFill').style.cssText=`width:${sc}%;background:${scCol};height:100%`;
     setTxt('scNum',`${sc} / 100`);
     const pills=[
@@ -1056,9 +1066,9 @@ inp.addEventListener('input',()=>{
     try{
       const res=await search(q);
       if(!res.length){dd.style.display='none';return;}
-      dd.innerHTML=res.map(s=>`<div class="dd-item" data-sym="${s.symbol}" data-name="${s.name.replace(/"/g,'&quot;')}" tabindex="-1" role="option">
-        <div class="dd-left"><span class="dd-sym">${s.symbol}</span><span class="dd-exch">${s.exchange||''}</span></div>
-        <span class="dd-name">${s.name.length>36?s.name.slice(0,36)+'…':s.name}</span>
+      dd.innerHTML=res.map(s=>`<div class="dd-item" data-sym="${esc(s.symbol)}" data-name="${esc(s.name)}" tabindex="-1" role="option">
+        <div class="dd-left"><span class="dd-sym">${esc(s.symbol)}</span><span class="dd-exch">${esc(s.exchange||'')}</span></div>
+        <span class="dd-name">${esc(s.name.length>36?s.name.slice(0,36)+'…':s.name)}</span>
       </div>`).join('');
       dd.style.display='block';
       dd.querySelectorAll('.dd-item').forEach(item=>{
