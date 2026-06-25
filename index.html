@@ -454,7 +454,7 @@ const CACHE_TTL=5*60*1000;        // 5 min — a timing tool shouldn't serve all
 let currentAC=null;               // AbortController of the in-flight analysis (superseded → aborted)
 const ROUTES=[
   (u,o)=>fetch(u,o),
-  (u,o)=>fetch(`https://corsproxy.io/?${encodeURIComponent(u)}`,o),
+  (u,o)=>fetch(`https://corsproxy.io/?url=${encodeURIComponent(u)}`,o),
   (u,o)=>fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,o),
   (u,o)=>fetch(`https://thingproxy.freeboard.io/fetch/${u}`,o),
   (u,o)=>fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,o),
@@ -500,10 +500,22 @@ async function history(symbol,detailEl,signal){
     `/v8/finance/chart/${encodeURIComponent(symbol)}?range=6mo&interval=1d`,
     `/v7/finance/chart/${encodeURIComponent(symbol)}?range=6mo&interval=1d`,
   ];
-  let d;
-  for(const path of paths){try{d=await fetchYahoo(path,detailEl,signal);if(d?.chart?.result?.[0])break;}catch{}}
+  // `reached` flips true the moment ANY path/route returns a parseable response,
+  // even one without chart data. That lets us tell two very different failures
+  // apart below: a transport outage (every proxy/route rejected → reached stays
+  // false) vs. a genuinely empty/invalid ticker (we got responses, just no
+  // series). Previously both collapsed into "check the ticker", which wrongly
+  // blamed the user's input during a proxy/network outage.
+  let d,reached=false;
+  for(const path of paths){
+    try{d=await fetchYahoo(path,detailEl,signal);reached=true;if(d?.chart?.result?.[0])break;}
+    catch{/* this path's routes all failed; try the next path */}
+  }
   const r=d?.chart?.result?.[0];
-  if(!r)throw new Error(`No data for "${symbol}". Check the ticker and try again.`);
+  if(!r){
+    if(!reached)throw new Error("Couldn't reach the market-data service — this is usually a temporary network or proxy issue, not a problem with the ticker. Please try again in a moment.");
+    throw new Error(`No price data returned for "${symbol}". Double-check the symbol — it may be delisted, an index, or not traded on a supported exchange.`);
+  }
   const currency=r.meta?.currency||'USD';
   const timestamp=r.timestamp;
   const q=r.indicators?.quote?.[0];
@@ -658,6 +670,21 @@ let ci=null;
 let chartState=null;
 function drawChart(labels,closes,s20,s50,bbU,bbL,currency){
   chartState={labels,closes,s20,s50,bbU,bbL,currency};
+  // A chart failure must NEVER take down the whole analysis. drawChart() is the
+  // last thing render() does, and render() runs inside analyse()'s try BEFORE
+  // the result panel is revealed — so anything thrown here bubbles into the
+  // catch and hides every number and the verdict, even though they all computed
+  // fine. Chart.js loads from a third-party CDN with no SRI and no fallback, so
+  // a blocked/slow CDN, an ad-blocker, or a Chart.js internal error on an odd
+  // series is a realistic trigger. The chart is a nicety; the analysis is the
+  // product. Guard the dependency and contain any render error.
+  const canvas=document.getElementById('chart');
+  if(typeof Chart==='undefined'||!canvas){
+    if(ci){try{ci.destroy();}catch(_){}ci=null;}
+    console.warn('Chart.js unavailable — showing analysis without the chart.');
+    return;
+  }
+  try{
   if(ci){ci.destroy();ci=null;}
   const root=document.documentElement;
   const dark=root.getAttribute('data-theme')==='dark'||(root.getAttribute('data-theme')!=='light'&&window.matchMedia('(prefers-color-scheme:dark)').matches);
@@ -665,7 +692,7 @@ function drawChart(labels,closes,s20,s50,bbU,bbL,currency){
   const tc=dark?'#555':'#999';
   const pc=dark?'#d0d0d0':'#1a1a1a';
   const mob=window.innerWidth<480;
-  ci=new Chart(document.getElementById('chart').getContext('2d'),{
+  ci=new Chart(canvas.getContext('2d'),{
     type:'line',
     data:{labels,datasets:[
       {label:'BB Upper',data:bbU,borderColor:'rgba(0,184,201,0.45)',borderWidth:0.8,borderDash:[3,5],fill:false,pointRadius:0,tension:0.2},
@@ -687,6 +714,13 @@ function drawChart(labels,closes,s20,s50,bbU,bbL,currency){
       }
     }
   });
+  }catch(e){
+    // Chart.js threw mid-render (bad data, context loss, version skew…). Tear
+    // down any half-built instance and carry on — the analysis is already
+    // computed and will still be shown by analyse().
+    if(ci){try{ci.destroy();}catch(_){}ci=null;}
+    console.error('Chart render failed — analysis still shown:',e);
+  }
 }
 
 // ── HELPER: set card accent ───────────────────────────────
@@ -1106,7 +1140,8 @@ dd.addEventListener('keydown',e=>{
   });
 })();
 
-window.addEventListener('load',()=>{inp.value='NVDA — NVIDIA Corp';analyse('NVDA','NVIDIA Corp');});
+// No default ticker — the search box starts blank and the user drives the first
+// analysis. (Previously auto-loaded NVDA on page load.)
 </script>
 </body>
 </html>
