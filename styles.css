@@ -100,10 +100,10 @@ input{font-family:inherit;-webkit-tap-highlight-color:transparent}
 /* HEADER / LOGO */
 header{margin-bottom:clamp(24px,5vw,48px)}
 .logo-row{display:flex;align-items:center;gap:11px;margin-bottom:7px}
-.logo-icon{width:clamp(32px,5vw,42px);height:clamp(32px,5vw,42px);flex-shrink:0;filter:drop-shadow(0 4px 12px color-mix(in srgb,var(--accent) 40%,transparent))}
-.logo-text{font-size:clamp(17px,3.6vw,24px);font-weight:900;letter-spacing:-.02em;line-height:1;display:flex;align-items:baseline}
-.logo-opti{background:linear-gradient(135deg,#00F0FF 0%,#0A98D9 55%,#468DA3 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.logo-entry{background:linear-gradient(135deg,#C5062A 0%,#f87171 55%,#fbbf24 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.logo-icon{width:clamp(40px,6vw,48px);height:clamp(40px,6vw,48px);flex-shrink:0;filter:drop-shadow(0 6px 16px rgba(8,12,26,.45)) drop-shadow(0 3px 12px color-mix(in srgb,var(--accent) 36%,transparent))}
+.logo-text{font-size:clamp(18px,3.8vw,26px);font-weight:900;letter-spacing:-.025em;line-height:1;display:flex;align-items:baseline}
+.logo-opti{background:linear-gradient(135deg,#7DEFFF 0%,#1FA9EA 52%,#1466D6 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.logo-entry{background:linear-gradient(135deg,#FFC15A 0%,#FB7A4A 52%,#F4476E 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .logo-tagline{font-size:clamp(9px,1.8vw,11px);color:var(--fg3);letter-spacing:.1em;text-transform:uppercase;font-weight:600;font-family:var(--mono);margin-bottom:5px}
 .sub{font-size:clamp(12px,2vw,13.5px);color:var(--fg2);line-height:1.6;max-width:46ch}
 
