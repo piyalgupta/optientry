@@ -23,6 +23,8 @@
   --hi:rgba(255,255,255,.85);
   --shadow:0 12px 36px -10px rgba(23,32,76,.22);
   --blur:saturate(170%) blur(18px);
+  /* soft-UI (neumorphic) light highlight + shadow pair for the theme toggle */
+  --neo-hi:rgba(255,255,255,.92); --neo-lo:rgba(20,28,68,.18);
 
   --card-accent:var(--accent);
   color-scheme:light dark;
@@ -36,6 +38,7 @@
   --glass:rgba(22,27,46,.5); --glass-2:rgba(30,35,56,.42);
   --brd:rgba(255,255,255,.12); --hi:rgba(255,255,255,.14);
   --shadow:0 16px 44px -12px rgba(0,0,0,.62);
+  --neo-hi:rgba(255,255,255,.05); --neo-lo:rgba(0,0,0,.5);
   --green:#34d399; --red:#fb7185; --amber:#fbbf24;
 }}
 :root[data-theme="dark"]{
@@ -45,6 +48,7 @@
   --glass:rgba(22,27,46,.5); --glass-2:rgba(30,35,56,.42);
   --brd:rgba(255,255,255,.12); --hi:rgba(255,255,255,.14);
   --shadow:0 16px 44px -12px rgba(0,0,0,.62);
+  --neo-hi:rgba(255,255,255,.05); --neo-lo:rgba(0,0,0,.5);
   --green:#34d399; --red:#fb7185; --amber:#fbbf24;
 }
 :root[data-theme="light"]{
@@ -54,6 +58,7 @@
   --glass:rgba(255,255,255,.55); --glass-2:rgba(255,255,255,.40);
   --brd:rgba(255,255,255,.6); --hi:rgba(255,255,255,.85);
   --shadow:0 12px 36px -10px rgba(23,32,76,.22);
+  --neo-hi:rgba(255,255,255,.92); --neo-lo:rgba(20,28,68,.18);
   --green:#16a34a; --red:#e11d48; --amber:#d97706;
 }
 
@@ -61,7 +66,7 @@
 
 /* reusable glass surface */
 .glass,
-#inp,.dd,.s-err,.bsh-block,.hc-card,.plan,.bt,.ch-wrap,.theme-btn{
+#inp,.dd,.s-err,.bsh-block,.hc-card,.plan,.bt,.ch-wrap{
   background:var(--glass);
   -webkit-backdrop-filter:var(--blur);
   backdrop-filter:var(--blur);
@@ -88,10 +93,18 @@
 }
 
 /* ---- base + animated ambient mesh ---- */
+/* Paint the root canvas with the theme background. Without this the <html>
+   canvas is transparent, so the browser falls back to its UA canvas colour —
+   which, under `color-scheme:light dark`, is BLACK when the OS is in dark mode
+   even though the site is forced light. Any sliver the body doesn't cover
+   (iOS rubber-band scroll, sub-pixel rounding) then flashes as a black strip
+   down the edge. Painting html + clipping its overflow removes that for good. */
+html{background:var(--bg); overflow-x:hidden}
 body{
   font-family:'Inter',sans-serif; background:var(--bg); color:var(--fg);
   font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;
-  -webkit-text-size-adjust:100%; min-height:100dvh; position:relative; overflow-x:hidden;
+  -webkit-text-size-adjust:100%; min-height:100dvh; width:100%;
+  position:relative; overflow-x:hidden;
 }
 body::before{
   content:''; position:fixed; inset:-25%; z-index:-1; pointer-events:none;
@@ -113,7 +126,14 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;-webkit-ta
 input{font-family:inherit;-webkit-tap-highlight-color:transparent}
 
 /* LAYOUT */
-.wrap{max-width:720px;margin:0 auto;padding:clamp(24px,5vw,64px) clamp(16px,4vw,32px) clamp(48px,8vw,96px)}
+/* Padding folds the notch/home-indicator safe-area insets into the gutters via
+   max(), so content never slides under a notch in landscape or the iOS home
+   bar — while still using the comfortable fluid gutters on every other device. */
+.wrap{max-width:720px;margin:0 auto;
+  padding-top:max(clamp(24px,5vw,64px),env(safe-area-inset-top));
+  padding-right:max(clamp(16px,4vw,32px),env(safe-area-inset-right));
+  padding-bottom:max(clamp(48px,8vw,96px),env(safe-area-inset-bottom));
+  padding-left:max(clamp(16px,4vw,32px),env(safe-area-inset-left))}
 
 /* HEADER / LOGO */
 header{margin-bottom:clamp(24px,5vw,48px)}
@@ -262,39 +282,82 @@ header{margin-bottom:clamp(24px,5vw,48px)}
 .ch-canvas-wrap{position:relative;height:clamp(170px,32vw,250px)}
 canvas{position:absolute;inset:0;width:100%!important;height:100%!important}
 
-/* THEME TOGGLE */
-.theme-btn{position:fixed;top:16px;right:16px;width:42px;height:42px;border-radius:50%;color:var(--fg2);font-size:16px;display:flex;align-items:center;justify-content:center;z-index:200;transition:transform .2s,color .2s,border-color .2s}
-.theme-btn:hover{transform:translateY(-2px) rotate(-12deg);border-color:color-mix(in srgb,var(--accent) 55%,var(--brd));color:var(--accent)}
+/* THEME TOGGLE — floating ultra-minimalist glass-neomorphism button.
+   Glassmorphism (translucent fill + backdrop blur) fused with soft-UI
+   neumorphism: a light highlight from the top-left and a soft shadow to the
+   bottom-right make it read as gently extruded from the surface; pressing it
+   inverts those shadows so it sinks in. Sits clear of the notch via safe-area
+   insets. Self-contained (not in the shared .glass group) so its shadow stack
+   stays purely neumorphic. */
+.theme-btn{
+  position:fixed;
+  top:max(14px,calc(env(safe-area-inset-top,0px) + 12px));
+  right:max(14px,calc(env(safe-area-inset-right,0px) + 12px));
+  width:44px;height:44px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:17px;line-height:1;color:var(--fg2);z-index:200;
+  background:var(--glass-2);
+  -webkit-backdrop-filter:saturate(160%) blur(13px);
+  backdrop-filter:saturate(160%) blur(13px);
+  border:1px solid var(--brd);
+  box-shadow:
+    -3px -3px 9px var(--neo-hi),
+    4px 5px 14px var(--neo-lo),
+    inset 0 1px 0 var(--hi),
+    inset 0 -3px 7px color-mix(in srgb,var(--neo-lo) 45%,transparent);
+  transition:transform .26s cubic-bezier(.34,1.56,.64,1),box-shadow .26s,color .26s}
+.theme-btn:hover{transform:translateY(-2px) scale(1.06);color:var(--accent)}
+.theme-btn:active{transform:translateY(0) scale(.94);
+  box-shadow:inset -3px -3px 8px var(--neo-hi),inset 4px 5px 12px var(--neo-lo)}
+.theme-btn:focus-visible{outline:2px solid color-mix(in srgb,var(--accent) 70%,transparent);outline-offset:3px}
 
 /* FOOTER */
 footer{font-size:11px;color:var(--fg3);padding-top:22px;margin-top:8px;border-top:1px solid var(--line);line-height:2}
 
-/* ── RESPONSIVE ── */
+/* ── RESPONSIVE ──
+   The base layout is fluid (clamp() everywhere) and reads as one centred column
+   capped at 720px, so it already scales from small phones to large desktops.
+   These breakpoints just reflow the multi-column grids and right-size the big
+   verdict tiles per device class & orientation. None of them re-set .wrap
+   padding, so the safe-area insets above always survive. */
+
+/* very small phones — keep the 4 verdict tiles from crowding the gutters */
+@media(max-width:360px){
+  .bsh-word{font-size:clamp(58px,18vw,68px);gap:4px}
+  .returns-row{gap:5px}
+}
+/* phones (portrait) — stack the 2-up grids into a single column */
 @media(max-width:479px){
   .hc-grid{grid-template-columns:1fr}
   .hc-wide{grid-column:1}
   .plan{grid-template-columns:1fr}
   .plan-full{grid-column:1}
   .returns-row{grid-template-columns:repeat(2,1fr)}
-  .bsh-word{font-size:74px}
+  .bsh-word{font-size:clamp(62px,17vw,76px)}
   .dd-exch{display:none}
   .t-name{max-width:55vw}
 }
+/* large phones / small tablets (portrait) */
 @media(min-width:480px) and (max-width:767px){
-  .wrap{max-width:100%;padding:24px 20px 64px}
-  .bsh-word{font-size:88px}
-  .ch-canvas-wrap{height:170px}
+  .bsh-word{font-size:clamp(80px,14vw,92px)}
+  .ch-canvas-wrap{height:clamp(170px,30vw,200px)}
 }
+/* tablets — keep the readable centred column, give the chart more room */
 @media(min-width:768px) and (max-width:1023px){
-  .wrap{max-width:700px;padding:44px 28px 72px}
-  .ch-canvas-wrap{height:210px}
+  .ch-canvas-wrap{height:220px}
 }
-@media(max-height:480px) and (orientation:landscape){
+/* laptops & desktops — a touch more chart height on the wide canvas */
+@media(min-width:1024px){
+  .ch-canvas-wrap{height:250px}
+}
+/* short landscape (phones turned sideways) — compress the vertical rhythm so
+   the verdict + first cards fit without a long scroll */
+@media(max-height:560px) and (orientation:landscape){
   header{margin-bottom:14px}
   .search-zone{margin-bottom:18px}
-  .bsh-block{padding:18px 22px}
-  .bsh-word{font-size:54px}
-  .ch-canvas-wrap{height:120px}
+  .bsh-block{padding:clamp(14px,3vh,20px) clamp(18px,4vw,30px)}
+  .bsh-word{font-size:clamp(46px,9vw,60px)}
+  .ch-canvas-wrap{height:clamp(120px,26vh,150px)}
   .plan-cell{padding:11px 15px}
 }
 @media(hover:none){
