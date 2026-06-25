@@ -306,43 +306,80 @@ function setHTML(id,html){const e=el(id);if(e)e.innerHTML=html;}
 // through the alphabet, decelerates, and clicks into place on its target
 // letter — a slow, teasing reveal that keeps the reader guessing until the
 // last tile lands. Tiles start staggered so the board settles left-to-right.
+//
+// Smoothness on every device comes from HOW the roll is driven: a single
+// requestAnimationFrame loop schedules every tile's glyph swaps off one
+// performance.now() clock (frame-aligned, so it never drifts or stutters the
+// way chained setTimeouts do on slow phones or high-refresh screens), and each
+// "clack" flip is played through the Web Animations API. WAAPI transforms run
+// on the compositor and need no layout work, so there's zero per-step forced
+// reflow — the old code thrashed layout (void tile.offsetWidth) on every step
+// of every tile just to restart a CSS keyframe, which is what made it janky.
+//
 // Honours prefers-reduced-motion (instant, no roll) and cancels any roll still
 // running from a previous analysis before rebuilding the tiles.
 const FLAP_GLYPHS='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-let _flapTimers=[];
+const FLAP_STEPS=18,FLAP_STAGGER=160;   // glyph swaps per tile; ms between tiles starting
+const FLAP_KEYS=[{transform:'rotateX(-82deg)',opacity:.5},{opacity:1,offset:.55},{transform:'rotateX(0)',opacity:1}];
+let _flapRAF=0,_flapAnims=[];
+function _cancelFlap(){
+  if(_flapRAF){cancelAnimationFrame(_flapRAF);_flapRAF=0;}
+  _flapAnims.forEach(a=>{try{a.cancel();}catch(_){}});_flapAnims=[];
+}
 function flipVerdict(word){
   const w=el('bshWord');if(!w)return;
-  _flapTimers.forEach(clearTimeout);_flapTimers=[];
+  _cancelFlap();
   w.textContent='';
   const reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches;
-  [...String(word)].forEach((ch,i)=>{
+  const tiles=[...String(word)].map((ch,i)=>{
     const f=document.createElement('span');f.className='flap';
     const g=document.createElement('span');g.className='flap-glyph';
     f.appendChild(g);w.appendChild(f);
-    if(reduce){g.textContent=ch;return;}
-    rollFlap(f,g,ch,i);
-  });
+    if(reduce){g.textContent=ch;f.classList.add('flap-landed');return null;}
+    return planFlap(f,g,ch,i);
+  }).filter(Boolean);
+  if(tiles.length)runFlap(tiles);
 }
-// Roll one tile from a fast spin to a gentle stop on `target`. The glyph walks
-// forward through the alphabet so the final two steps (…target-1, target) snap
-// cleanly into place; the gap between steps eases in (38ms → ~240ms) so the
-// roll visibly slows before it lands, and each step replays the flap keyframe
-// for a mechanical "clack".
-function rollFlap(tile,glyph,target,idx){
-  const steps=18,ti=FLAP_GLYPHS.indexOf(target.toUpperCase());
-  let k=0;
-  const tick=()=>{
-    const last=k===steps;
-    glyph.textContent=last?target
-      :(ti<0?FLAP_GLYPHS[(Math.random()*26)|0]:FLAP_GLYPHS[((ti-(steps-k))%26+26)%26]);
-    tile.style.animation='none';void tile.offsetWidth;   // restart the keyframe
-    tile.style.animation=`flap-roll ${last?300:150}ms cubic-bezier(.3,1.25,.5,1)`;
-    if(last){tile.classList.add('flap-landed');return;}
-    k++;
-    const p=k/steps;
-    _flapTimers.push(setTimeout(tick,38+205*p*p));
+// Pre-compute one tile's roll: the time (ms from roll start) of each glyph swap
+// and which glyph it shows. The glyph walks forward through the alphabet so the
+// final two steps (…target-1, target) snap cleanly into place; the gap between
+// steps eases in (38ms → ~240ms) so the roll visibly slows before it lands.
+function planFlap(tile,glyph,target,idx){
+  const ti=FLAP_GLYPHS.indexOf(target.toUpperCase());
+  const steps=[];
+  let t=idx*FLAP_STAGGER;                                 // left-to-right cascade
+  for(let k=0;k<=FLAP_STEPS;k++){
+    const last=k===FLAP_STEPS;
+    steps.push({t,last,ch:last?target
+      :(ti<0?FLAP_GLYPHS[(Math.random()*26)|0]:FLAP_GLYPHS[((ti-(FLAP_STEPS-k))%26+26)%26])});
+    const p=(k+1)/FLAP_STEPS;
+    t+=38+205*p*p;
+  }
+  return{tile,glyph,steps,i:0,anim:null};
+}
+// One rAF loop advances every tile off a shared clock: each frame, fire any
+// glyph swaps now due, replaying the flip via WAAPI for a mechanical "clack".
+// Cancelling the prior step's animation before the next mirrors the old
+// keyframe-restart so the early fast steps blur into a continuous spin.
+function runFlap(tiles){
+  const start=performance.now();
+  const frame=now=>{
+    const t=now-start;
+    let live=false;
+    for(const tl of tiles){
+      while(tl.i<tl.steps.length&&tl.steps[tl.i].t<=t){
+        const s=tl.steps[tl.i++];
+        tl.glyph.textContent=s.ch;
+        if(tl.anim)tl.anim.cancel();
+        tl.anim=tl.tile.animate(FLAP_KEYS,{duration:s.last?300:150,easing:'cubic-bezier(.3,1.25,.5,1)'});
+        _flapAnims.push(tl.anim);
+        if(s.last)tl.tile.classList.add('flap-landed');
+      }
+      if(tl.i<tl.steps.length)live=true;
+    }
+    _flapRAF=live?requestAnimationFrame(frame):0;
   };
-  _flapTimers.push(setTimeout(tick,idx*160));            // left-to-right cascade
+  _flapRAF=requestAnimationFrame(frame);
 }
 // HTML-escape untrusted strings (Yahoo search results) before injecting via
 // innerHTML — keeps markup in a ticker symbol or company name from breaking the
