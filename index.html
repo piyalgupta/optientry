@@ -454,7 +454,7 @@ const CACHE_TTL=5*60*1000;        // 5 min — a timing tool shouldn't serve all
 let currentAC=null;               // AbortController of the in-flight analysis (superseded → aborted)
 const ROUTES=[
   (u,o)=>fetch(u,o),
-  (u,o)=>fetch(`https://corsproxy.io/?${encodeURIComponent(u)}`,o),
+  (u,o)=>fetch(`https://corsproxy.io/?url=${encodeURIComponent(u)}`,o),
   (u,o)=>fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,o),
   (u,o)=>fetch(`https://thingproxy.freeboard.io/fetch/${u}`,o),
   (u,o)=>fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,o),
@@ -500,10 +500,22 @@ async function history(symbol,detailEl,signal){
     `/v8/finance/chart/${encodeURIComponent(symbol)}?range=6mo&interval=1d`,
     `/v7/finance/chart/${encodeURIComponent(symbol)}?range=6mo&interval=1d`,
   ];
-  let d;
-  for(const path of paths){try{d=await fetchYahoo(path,detailEl,signal);if(d?.chart?.result?.[0])break;}catch{}}
+  // `reached` flips true the moment ANY path/route returns a parseable response,
+  // even one without chart data. That lets us tell two very different failures
+  // apart below: a transport outage (every proxy/route rejected → reached stays
+  // false) vs. a genuinely empty/invalid ticker (we got responses, just no
+  // series). Previously both collapsed into "check the ticker", which wrongly
+  // blamed the user's input during a proxy/network outage.
+  let d,reached=false;
+  for(const path of paths){
+    try{d=await fetchYahoo(path,detailEl,signal);reached=true;if(d?.chart?.result?.[0])break;}
+    catch{/* this path's routes all failed; try the next path */}
+  }
   const r=d?.chart?.result?.[0];
-  if(!r)throw new Error(`No data for "${symbol}". Check the ticker and try again.`);
+  if(!r){
+    if(!reached)throw new Error("Couldn't reach the market-data service — this is usually a temporary network or proxy issue, not a problem with the ticker. Please try again in a moment.");
+    throw new Error(`No price data returned for "${symbol}". Double-check the symbol — it may be delisted, an index, or not traded on a supported exchange.`);
+  }
   const currency=r.meta?.currency||'USD';
   const timestamp=r.timestamp;
   const q=r.indicators?.quote?.[0];
