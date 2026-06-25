@@ -302,6 +302,19 @@ function el(id){if(!_elCache.has(id))_elCache.set(id,document.getElementById(id)
 function setAcc(id,col){const e=el(id);if(e)e.style.setProperty('--card-accent',col);}
 function setTxt(id,txt){const e=el(id);if(e)e.textContent=txt;}
 function setHTML(id,html){const e=el(id);if(e)e.innerHTML=html;}
+// Render the verdict as a cascade of split-flap tiles ("flipclock"). Rebuilding
+// the nodes restarts the CSS flip animation on every fresh analysis.
+function flipVerdict(word){
+  const w=el('bshWord');if(!w)return;
+  w.textContent='';
+  [...String(word)].forEach((ch,i)=>{
+    const f=document.createElement('span');
+    f.className='flap';f.style.setProperty('--i',i);
+    const g=document.createElement('span');
+    g.className='flap-glyph';g.textContent=ch;
+    f.appendChild(g);w.appendChild(f);
+  });
+}
 // HTML-escape untrusted strings (Yahoo search results) before injecting via
 // innerHTML — keeps markup in a ticker symbol or company name from breaking the
 // layout or injecting nodes. Output round-trips cleanly through dataset, whose
@@ -433,7 +446,7 @@ function render(A){
     // Verdict
     const bshBlock=document.getElementById('bshBlock');
     bshBlock.className=`bsh-block ${bshCls}`;
-    setTxt('bshWord',bsh);
+    flipVerdict(bsh);
     setTxt('bshCount',`${bullSigs} of ${total} signals agree`);
     setTxt('bshReason',bshReason);
 
@@ -702,7 +715,8 @@ dd.addEventListener('keydown',e=>{
 (function(){
   const btn=document.getElementById('themeBtn'),root=document.documentElement;
   function isDark(){const t=root.getAttribute('data-theme');return t==='dark'?true:t==='light'?false:window.matchMedia('(prefers-color-scheme:dark)').matches;}
-  function apply(){btn.textContent=isDark()?'☀':'🌙';}
+  const meta=document.querySelector('meta[name="theme-color"]');
+  function apply(){const d=isDark();btn.textContent=d?'☀':'🌙';if(meta)meta.setAttribute('content',d?'#070912':'#eaeefb');}
   apply();
   btn.addEventListener('click',()=>{
     root.setAttribute('data-theme',isDark()?'light':'dark');
