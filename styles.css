@@ -151,13 +151,21 @@ header{margin-bottom:clamp(24px,5vw,48px)}
 
 /* BIG BUY / SELL / HOLD */
 .bsh-block{border-radius:26px;padding:clamp(26px,5vw,44px) clamp(20px,4vw,38px);margin-bottom:clamp(20px,4vw,32px);text-align:center;position:relative;overflow:hidden;transition:box-shadow .4s,border-color .4s}
-.bsh-block.buy{border-color:color-mix(in srgb,var(--green) 45%,var(--brd));background:color-mix(in srgb,var(--green) 9%,var(--glass));box-shadow:var(--shadow),inset 0 1px 0 var(--hi),0 0 70px -26px var(--green)}
-.bsh-block.hold{border-color:color-mix(in srgb,var(--amber) 45%,var(--brd));background:color-mix(in srgb,var(--amber) 9%,var(--glass));box-shadow:var(--shadow),inset 0 1px 0 var(--hi),0 0 70px -26px var(--amber)}
-.bsh-block.sell{border-color:color-mix(in srgb,var(--red) 45%,var(--brd));background:color-mix(in srgb,var(--red) 9%,var(--glass));box-shadow:var(--shadow),inset 0 1px 0 var(--hi),0 0 70px -26px var(--red)}
-.bsh-word{font-size:clamp(74px,18vw,112px);font-weight:900;letter-spacing:-.04em;line-height:1;margin-bottom:8px}
-.bsh-block.buy .bsh-word{color:var(--green);text-shadow:0 6px 38px color-mix(in srgb,var(--green) 55%,transparent)}
-.bsh-block.hold .bsh-word{color:var(--amber);text-shadow:0 6px 38px color-mix(in srgb,var(--amber) 55%,transparent)}
-.bsh-block.sell .bsh-word{color:var(--red);text-shadow:0 6px 38px color-mix(in srgb,var(--red) 55%,transparent)}
+.bsh-block.buy{--bsh-col:var(--green);border-color:color-mix(in srgb,var(--green) 45%,var(--brd));background:color-mix(in srgb,var(--green) 9%,var(--glass));box-shadow:var(--shadow),inset 0 1px 0 var(--hi),0 0 70px -26px var(--green)}
+.bsh-block.hold{--bsh-col:var(--amber);border-color:color-mix(in srgb,var(--amber) 45%,var(--brd));background:color-mix(in srgb,var(--amber) 9%,var(--glass));box-shadow:var(--shadow),inset 0 1px 0 var(--hi),0 0 70px -26px var(--amber)}
+.bsh-block.sell{--bsh-col:var(--red);border-color:color-mix(in srgb,var(--red) 45%,var(--brd));background:color-mix(in srgb,var(--red) 9%,var(--glass));box-shadow:var(--shadow),inset 0 1px 0 var(--hi),0 0 70px -26px var(--red)}
+/* split-flap "flipclock" verdict — JS injects one .flap tile per letter */
+.bsh-word{display:inline-flex;justify-content:center;gap:clamp(5px,1.4vw,11px);perspective:760px;font-size:clamp(70px,17vw,108px);font-weight:900;letter-spacing:-.04em;line-height:1;margin-bottom:8px;min-height:1em}
+.flap{position:relative;flex:0 0 auto;display:flex;align-items:center;justify-content:center;min-width:.6em;padding:.02em .05em;color:var(--bsh-col,var(--fg));
+  background:color-mix(in srgb,var(--bsh-col,var(--fg)) 13%,var(--glass-2));
+  border:1px solid color-mix(in srgb,var(--bsh-col,var(--fg)) 32%,var(--brd));
+  border-radius:.13em;box-shadow:0 .1em .26em -.06em rgba(0,0,0,.5),inset 0 .02em 0 var(--hi);
+  transform-origin:center;backface-visibility:hidden;
+  animation:flap-in .55s cubic-bezier(.34,1.4,.5,1) backwards;animation-delay:calc(var(--i) * .1s)}
+.flap::after{content:'';position:absolute;left:8%;right:8%;top:50%;height:2px;margin-top:-1px;pointer-events:none;opacity:.4;
+  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--bsh-col) 35%,#000),transparent)}
+.flap-glyph{display:block;text-shadow:0 .05em .16em color-mix(in srgb,var(--bsh-col) 50%,transparent)}
+@keyframes flap-in{0%{transform:rotateX(-90deg);opacity:0}45%{opacity:1}68%{transform:rotateX(10deg)}100%{transform:rotateX(0);opacity:1}}
 .bsh-count{font-size:clamp(11px,2vw,13px);font-weight:600;letter-spacing:.05em;opacity:.7;margin-bottom:10px;font-family:var(--mono)}
 .bsh-reason{font-size:clamp(13px,2.5vw,14.5px);color:var(--fg2);line-height:1.78;max-width:480px;margin:0 auto}
 
@@ -276,5 +284,6 @@ footer{font-size:11px;color:var(--fg3);padding-top:22px;margin-top:8px;border-to
 /* respect reduced-motion */
 @media(prefers-reduced-motion:reduce){
   body::before{animation:none}
+  .flap{animation:none}
   *{transition-duration:.01ms!important}
 }
