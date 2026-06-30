@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>OptiEntry — Stock Timing</title>
 <meta name="description" content="Search any stock and get an instant, plain-English Buy, Hold or Sell timing verdict — no finance degree needed. US, India (NSE/BSE), Japan, Europe and most global exchanges.">
-<meta name="theme-color" content="#0a0a0a">
+<meta name="theme-color" content="#0a0b0f">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" sizes="any">
 <link rel="apple-touch-icon" href="favicon.png">
@@ -28,7 +28,9 @@
 </head>
 <body>
 
-<button class="theme-btn" id="themeBtn" aria-label="Toggle theme">☀</button>
+<button class="theme-btn" id="themeBtn" aria-label="Toggle theme">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.4M12 19.1v2.4M4.3 4.3l1.7 1.7M18 18l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.3 19.7l1.7-1.7M18 6l1.7-1.7"/></svg>
+</button>
 
 <div class="wrap">
 
@@ -64,7 +66,7 @@
       <circle cx="22.5" cy="44" r="4.5" fill="url(#lg-gold)"/>
       <circle cx="22.5" cy="44" r="1.6" fill="#fff" fill-opacity=".92"/>
     </svg>
-    <div class="logo-text"><span class="logo-opti">OPTI</span><span class="logo-entry">ENTRY</span></div>
+    <div class="logo-text"><span class="logo-opti">Opti</span><span class="logo-entry">Entry</span></div>
   </div>
   <div class="logo-tagline">Stock Timing · Global Markets</div>
   <p class="sub">Search any stock and get a plain-English Buy, Hold, or Sell decision — no finance degree needed</p>
@@ -114,102 +116,102 @@
   <div class="hc-grid" id="hcGrid">
 
     <div class="hc-card" id="hc-rsi" tabindex="0">
-      <div class="hc-head"><span class="hc-emoji">📊</span><span class="hc-label">Buying Pressure</span><span class="hc-toggle">⌄</span></div>
+      <div class="hc-head"><svg class="hc-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15a8 8 0 0 1 16 0"/><path d="M12 15l4.5-3.4"/><circle cx="12" cy="15" r="1.1" fill="currentColor" stroke="none"/></svg><span class="hc-label">Buying Pressure</span><span class="hc-toggle">⌄</span></div>
       <div class="hc-value" id="dRsi">—</div>
       <div class="hc-bar-track"><div class="hc-bar-fill" id="dRsiBar"></div></div>
       <div class="hc-detail"><div class="hc-desc" id="dRsiDesc">—</div><div class="hc-action" id="dRsiAction">—</div></div>
     </div>
 
     <div class="hc-card" id="hc-macd" tabindex="0">
-      <div class="hc-head"><span class="hc-emoji">⚡</span><span class="hc-label">Momentum Signal</span><span class="hc-toggle">⌄</span></div>
+      <div class="hc-head"><svg class="hc-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h3.4l2-6 3.5 12 2.5-6H21"/></svg><span class="hc-label">Momentum Signal</span><span class="hc-toggle">⌄</span></div>
       <div class="hc-value" id="dMacd">—</div>
       <div class="hc-detail"><div class="hc-desc" id="dMacdDesc">—</div><div class="hc-action" id="dMacdAction">—</div></div>
     </div>
 
     <div class="hc-card" id="hc-mom" tabindex="0">
-      <div class="hc-head"><span class="hc-emoji">📅</span><span class="hc-label">Last Month's Change</span><span class="hc-toggle">⌄</span></div>
+      <div class="hc-head"><svg class="hc-ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2.2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg><span class="hc-label">Last Month's Change</span><span class="hc-toggle">⌄</span></div>
       <div class="hc-value" id="dMom">—</div>
       <div class="hc-detail"><div class="hc-desc" id="dMomDesc">—</div><div class="hc-action" id="dMomAction">—</div></div>
     </div>
 
     <div class="hc-card" id="hc-bb" tabindex="0">
-      <div class="hc-head"><span class="hc-emoji">🎯</span><span class="hc-label">Cheap or Expensive?</span><span class="hc-toggle">⌄</span></div>
+      <div class="hc-head"><svg class="hc-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 12.4 11 5a2 2 0 0 1 1.5-.6l5 .2a2 2 0 0 1 1.9 1.9l.2 5A2 2 0 0 1 19 13l-7.4 7.4a1.6 1.6 0 0 1-2.3 0l-5.7-5.7a1.6 1.6 0 0 1 0-2.3z"/><circle cx="15.8" cy="8.2" r="1.3"/></svg><span class="hc-label">Cheap or Expensive?</span><span class="hc-toggle">⌄</span></div>
       <div class="hc-value" id="dBb">—</div>
       <div class="hc-bar-track"><div class="hc-bar-fill" id="dBbBar"></div></div>
       <div class="hc-detail"><div class="hc-desc" id="dBbDesc">—</div><div class="hc-action" id="dBbAction">—</div></div>
     </div>
 
     <div class="hc-card" id="hc-s20" tabindex="0">
-      <div class="hc-head"><span class="hc-emoji">📈</span><span class="hc-label">Short-term Trend</span><span class="hc-toggle">⌄</span></div>
+      <div class="hc-head"><svg class="hc-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 16.5l5.5-5.5 3.5 3.5 8-8"/><path d="M15 6.5h5v5"/></svg><span class="hc-label">Short-term Trend</span><span class="hc-toggle">⌄</span></div>
       <div class="hc-value" id="dS20">—</div>
       <div class="hc-detail"><div class="hc-desc" id="dS20Desc">—</div><div class="hc-action" id="dS20Action">—</div></div>
     </div>
 
     <div class="hc-card" id="hc-s50" tabindex="0">
-      <div class="hc-head"><span class="hc-emoji">🧭</span><span class="hc-label">Long-term Trend</span><span class="hc-toggle">⌄</span></div>
+      <div class="hc-head"><svg class="hc-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v15.5a.5.5 0 0 0 .5.5H20"/><path d="M7.5 16l3.5-3.6 3 2 5-6.4"/></svg><span class="hc-label">Long-term Trend</span><span class="hc-toggle">⌄</span></div>
       <div class="hc-value" id="dS50">—</div>
       <div class="hc-detail"><div class="hc-desc" id="dS50Desc">—</div><div class="hc-action" id="dS50Action">—</div></div>
     </div>
 
     <div class="hc-card" id="hc-stoch" tabindex="0">
-      <div class="hc-head"><span class="hc-emoji">🌡️</span><span class="hc-label">Overheated?</span><span class="hc-toggle">⌄</span></div>
+      <div class="hc-head"><svg class="hc-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 14.8V6a2 2 0 0 0-4 0v8.8a4 4 0 1 0 4 0z"/><path d="M12 10v5.2"/></svg><span class="hc-label">Overheated?</span><span class="hc-toggle">⌄</span></div>
       <div class="hc-value" id="dStoch">—</div>
       <div class="hc-bar-track"><div class="hc-bar-fill" id="dStochBar"></div></div>
       <div class="hc-detail"><div class="hc-desc" id="dStochDesc">—</div><div class="hc-action" id="dStochAction">—</div></div>
     </div>
 
     <div class="hc-card" id="hc-streak" tabindex="0">
-      <div class="hc-head"><span class="hc-emoji">🔥</span><span class="hc-label">Win/Loss Streak</span><span class="hc-toggle">⌄</span></div>
+      <div class="hc-head"><svg class="hc-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c3 3.5 5 6 5 9a5 5 0 0 1-10 0c0-1.6.8-3 1.8-4 .2 1 .9 1.6 1.7 1.6 1.1 0 1.9-1 1.7-2.3C12.3 6 12 4.6 12 3z"/></svg><span class="hc-label">Win/Loss Streak</span><span class="hc-toggle">⌄</span></div>
       <div class="hc-value" id="dStreak">—</div>
       <div class="hc-detail"><div class="hc-desc" id="dStreakDesc">—</div><div class="hc-action" id="dStreakAction">—</div></div>
     </div>
 
     <div class="hc-card hc-wide" id="hc-cross" tabindex="0">
-      <div class="hc-head"><span class="hc-emoji">✨</span><span class="hc-label">Trend Change Signal (Golden / Death Cross)</span><span class="hc-toggle">⌄</span></div>
+      <div class="hc-head"><svg class="hc-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5l16 9M4 16.5l16-9"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg><span class="hc-label">Trend Change Signal (Golden / Death Cross)</span><span class="hc-toggle">⌄</span></div>
       <div class="hc-value" id="dCross">—</div>
       <div class="hc-detail"><div class="hc-desc" id="dCrossDesc">—</div><div class="hc-action" id="dCrossAction">—</div></div>
     </div>
 
     <div class="hc-card hc-wide" id="hc-52w" tabindex="0">
-      <div class="hc-head"><span class="hc-emoji">📏</span><span class="hc-label">Where is it in the year's range?</span><span class="hc-toggle">⌄</span></div>
+      <div class="hc-head"><svg class="hc-ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="9" width="18" height="6" rx="1.6"/><path d="M7 9v2.4M11 9v3M15 9v2.4M19 9v3"/></svg><span class="hc-label">Where is it in the year's range?</span><span class="hc-toggle">⌄</span></div>
       <div class="hc-value" id="d52w">—</div>
       <div class="hc-bar-track"><div class="hc-bar-fill" id="d52wBar" style="background:var(--accent)"></div></div>
       <div class="hc-detail"><div class="hc-desc" id="d52wDesc">—</div><div class="hc-action" id="d52wAction">—</div></div>
     </div>
 
     <div class="hc-card hc-wide" id="hc-returns" tabindex="0">
-      <div class="hc-head"><span class="hc-emoji">🗓️</span><span class="hc-label">Performance Across Timeframes</span><span class="hc-toggle">⌄</span></div>
+      <div class="hc-head"><svg class="hc-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 20v-5M9.5 20v-9M14.5 20v-6M19.5 20v-11"/></svg><span class="hc-label">Performance Across Timeframes</span><span class="hc-toggle">⌄</span></div>
       <div class="returns-row" id="dReturns"></div>
       <div class="hc-detail"><div class="hc-desc" id="dReturnsDesc">—</div></div>
     </div>
 
     <div class="hc-card" id="hc-sup" tabindex="0">
-      <div class="hc-head"><span class="hc-emoji">🛡️</span><span class="hc-label">Safety Net (Floor)</span><span class="hc-toggle">⌄</span></div>
+      <div class="hc-head"><svg class="hc-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l7 2.6v5.4c0 4.4-3 7.7-7 9.6-4-1.9-7-5.2-7-9.6V5.8z"/></svg><span class="hc-label">Safety Net (Floor)</span><span class="hc-toggle">⌄</span></div>
       <div class="hc-value" id="dSup">—</div>
       <div class="hc-detail"><div class="hc-desc" id="dSupDesc">—</div><div class="hc-action" id="dSupAction">—</div></div>
     </div>
 
     <div class="hc-card" id="hc-res" tabindex="0">
-      <div class="hc-head"><span class="hc-emoji">🎯</span><span class="hc-label">Profit Target (Ceiling)</span><span class="hc-toggle">⌄</span></div>
+      <div class="hc-head"><svg class="hc-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg><span class="hc-label">Profit Target (Ceiling)</span><span class="hc-toggle">⌄</span></div>
       <div class="hc-value" id="dRes">—</div>
       <div class="hc-detail"><div class="hc-desc" id="dResDesc">—</div><div class="hc-action" id="dResAction">—</div></div>
     </div>
 
     <div class="hc-card" id="hc-atr" tabindex="0">
-      <div class="hc-head"><span class="hc-emoji">🌊</span><span class="hc-label">How Bumpy is the Ride?</span><span class="hc-toggle">⌄</span></div>
+      <div class="hc-head"><svg class="hc-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10c1.5-3.4 3-3.4 4.5 0s3 3.4 4.5 0 3-3.4 4.5 0"/><path d="M3 15.5c1.5-3.4 3-3.4 4.5 0s3 3.4 4.5 0 3-3.4 4.5 0"/></svg><span class="hc-label">How Bumpy is the Ride?</span><span class="hc-toggle">⌄</span></div>
       <div class="hc-value" id="dVol">—</div>
       <div class="hc-detail"><div class="hc-desc" id="dVolDesc">—</div><div class="hc-action" id="dVolAction">—</div></div>
     </div>
 
     <div class="hc-card hc-wide" id="hc-volume" tabindex="0">
-      <div class="hc-head"><span class="hc-emoji">📦</span><span class="hc-label">Trading Volume — Are big players active?</span><span class="hc-toggle">⌄</span></div>
+      <div class="hc-head"><svg class="hc-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 20h17"/><path d="M6.5 20v-6M11 20v-9M15.5 20v-4M20 20v-8"/></svg><span class="hc-label">Trading Volume — Are big players active?</span><span class="hc-toggle">⌄</span></div>
       <div class="hc-value" id="dVolTrend">—</div>
       <div class="vol-spark" id="dVolSpark"></div>
       <div class="hc-detail"><div class="hc-desc" id="dVolTrendDesc">—</div><div class="hc-action" id="dVolAction2">—</div></div>
     </div>
 
     <div class="hc-card hc-wide" id="hc-agree" tabindex="0">
-      <div class="hc-head"><span class="hc-emoji">🧩</span><span class="hc-label">Overall Signal Agreement</span><span class="hc-toggle">⌄</span></div>
+      <div class="hc-head"><svg class="hc-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.2"/><path d="M8.4 12.2l2.4 2.4 4.7-5.3"/></svg><span class="hc-label">Overall Signal Agreement</span><span class="hc-toggle">⌄</span></div>
       <div class="hc-value" id="dTrend">—</div>
       <div class="hc-detail"><div class="hc-desc" id="dTrendDesc">—</div></div>
     </div>
@@ -237,7 +239,7 @@
   </div>
 
   <div class="bt" id="btWrap">
-    <div class="bt-lbl">🏆 Best trade this stock offered — last 6 months</div>
+    <div class="bt-lbl">Best trade this stock offered · last 6 months</div>
     <div class="bt-body" id="btBody">—</div>
   </div>
 
@@ -248,7 +250,7 @@
 
 </div>
 
-<footer>📌 For educational use only — not financial advice. Always do your own research before investing.</footer>
+<footer>For educational use only — not financial advice. Always do your own research before investing.</footer>
 </div>
 
 <script src="app.js" defer></script>

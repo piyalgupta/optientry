@@ -62,7 +62,7 @@ async function history(symbol,detailEl,signal){
   const key=symbol.toUpperCase();
   const hit=SESSION.get(key);
   if(hit&&Date.now()-hit.ts<CACHE_TTL){
-    if(detailEl){detailEl.textContent='Loaded from cache ✓';setTimeout(()=>{if(detailEl)detailEl.textContent='';},800);}
+    if(detailEl){detailEl.textContent='Loaded from cache';setTimeout(()=>{if(detailEl)detailEl.textContent='';},800);}
     return hit.data;
   }
   const end=Math.floor(Date.now()/1000),start=end-190*86400;
@@ -300,86 +300,33 @@ function drawChart(labels,closes,s20,s50,bbU,bbL,currency){
 const _elCache=new Map();
 function el(id){if(!_elCache.has(id))_elCache.set(id,document.getElementById(id));return _elCache.get(id);}
 function setAcc(id,col){const e=el(id);if(e)e.style.setProperty('--card-accent',col);}
-function setTxt(id,txt){const e=el(id);if(e)e.textContent=txt;}
-function setHTML(id,html){const e=el(id);if(e)e.innerHTML=html;}
-// Render the verdict on a split-flap "departures board": each tile spins fast
-// through the alphabet, decelerates, and clicks into place on its target
-// letter — a slow, teasing reveal that keeps the reader guessing until the
-// last tile lands. Tiles start staggered so the board settles left-to-right.
-//
-// Smoothness on every device comes from HOW the roll is driven: a single
-// requestAnimationFrame loop schedules every tile's glyph swaps off one
-// performance.now() clock (frame-aligned, so it never drifts or stutters the
-// way chained setTimeouts do on slow phones or high-refresh screens), and each
-// "clack" flip is played through the Web Animations API. WAAPI transforms run
-// on the compositor and need no layout work, so there's zero per-step forced
-// reflow — the old code thrashed layout (void tile.offsetWidth) on every step
-// of every tile just to restart a CSS keyframe, which is what made it janky.
-//
-// Honours prefers-reduced-motion (instant, no roll) and cancels any roll still
-// running from a previous analysis before rebuilding the tiles.
-const FLAP_GLYPHS='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-const FLAP_STEPS=18,FLAP_STAGGER=160;   // glyph swaps per tile; ms between tiles starting
-const FLAP_KEYS=[{transform:'rotateX(-82deg)',opacity:.5},{opacity:1,offset:.55},{transform:'rotateX(0)',opacity:1}];
-let _flapRAF=0,_flapAnims=[];
-function _cancelFlap(){
-  if(_flapRAF){cancelAnimationFrame(_flapRAF);_flapRAF=0;}
-  _flapAnims.forEach(a=>{try{a.cancel();}catch(_){}});_flapAnims=[];
-}
+// The whole UI is monochrome-by-discipline: no decorative emoji reach the
+// screen. Rather than police every copy string, we strip emoji at the single
+// render chokepoint. The ranges below cover pictographs, dingbats, symbols and
+// variation selectors (🟢🔴🔥✨✅⚠️🎯…); functional arrows (↑ ↓, U+2190–21FF)
+// sit below the stripped range and survive, so trend/score glyphs are intact.
+const EMOJI=/[\u{1F000}-\u{1FAFF}\u{2300}-\u{27BF}\u{2B00}-\u{2BFF}ℹ️‍]/gu;
+function deEmoji(s){return String(s).replace(EMOJI,'').replace(/ {2,}/g,' ');}
+function setTxt(id,txt){const e=el(id);if(e)e.textContent=deEmoji(txt).trim();}
+function setHTML(id,html){const e=el(id);if(e)e.innerHTML=deEmoji(html);}
+// Land the verdict as one confident word: a single spring-scale + focus-in fade
+// so the call reads as a *decision*, not a slot-machine spin. One Web Animations
+// API run, so it stays smooth on any device. Honours prefers-reduced-motion by
+// showing the word instantly, and cancels any run still playing from a previous
+// analysis before starting the next.
+let _verdictAnim=null;
 function flipVerdict(word){
   const w=el('bshWord');if(!w)return;
-  _cancelFlap();
-  w.textContent='';
-  const reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches;
-  const tiles=[...String(word)].map((ch,i)=>{
-    const f=document.createElement('span');f.className='flap';
-    const g=document.createElement('span');g.className='flap-glyph';
-    f.appendChild(g);w.appendChild(f);
-    if(reduce){g.textContent=ch;f.classList.add('flap-landed');return null;}
-    return planFlap(f,g,ch,i);
-  }).filter(Boolean);
-  if(tiles.length)runFlap(tiles);
-}
-// Pre-compute one tile's roll: the time (ms from roll start) of each glyph swap
-// and which glyph it shows. The glyph walks forward through the alphabet so the
-// final two steps (…target-1, target) snap cleanly into place; the gap between
-// steps eases in (38ms → ~240ms) so the roll visibly slows before it lands.
-function planFlap(tile,glyph,target,idx){
-  const ti=FLAP_GLYPHS.indexOf(target.toUpperCase());
-  const steps=[];
-  let t=idx*FLAP_STAGGER;                                 // left-to-right cascade
-  for(let k=0;k<=FLAP_STEPS;k++){
-    const last=k===FLAP_STEPS;
-    steps.push({t,last,ch:last?target
-      :(ti<0?FLAP_GLYPHS[(Math.random()*26)|0]:FLAP_GLYPHS[((ti-(FLAP_STEPS-k))%26+26)%26])});
-    const p=(k+1)/FLAP_STEPS;
-    t+=38+205*p*p;
+  if(_verdictAnim){try{_verdictAnim.cancel();}catch(_){}_verdictAnim=null;}
+  w.textContent=String(word);
+  if(window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches){
+    w.style.opacity='1';w.style.transform='none';w.style.filter='none';return;
   }
-  return{tile,glyph,steps,i:0,anim:null};
-}
-// One rAF loop advances every tile off a shared clock: each frame, fire any
-// glyph swaps now due, replaying the flip via WAAPI for a mechanical "clack".
-// Cancelling the prior step's animation before the next mirrors the old
-// keyframe-restart so the early fast steps blur into a continuous spin.
-function runFlap(tiles){
-  const start=performance.now();
-  const frame=now=>{
-    const t=now-start;
-    let live=false;
-    for(const tl of tiles){
-      while(tl.i<tl.steps.length&&tl.steps[tl.i].t<=t){
-        const s=tl.steps[tl.i++];
-        tl.glyph.textContent=s.ch;
-        if(tl.anim)tl.anim.cancel();
-        tl.anim=tl.tile.animate(FLAP_KEYS,{duration:s.last?300:150,easing:'cubic-bezier(.3,1.25,.5,1)'});
-        _flapAnims.push(tl.anim);
-        if(s.last)tl.tile.classList.add('flap-landed');
-      }
-      if(tl.i<tl.steps.length)live=true;
-    }
-    _flapRAF=live?requestAnimationFrame(frame):0;
-  };
-  _flapRAF=requestAnimationFrame(frame);
+  _verdictAnim=w.animate([
+    {opacity:0,transform:'scale(.9)',filter:'blur(7px)'},
+    {opacity:1,transform:'scale(1.03)',filter:'blur(0)',offset:.62},
+    {opacity:1,transform:'scale(1)',filter:'blur(0)'}
+  ],{duration:560,easing:'cubic-bezier(.2,.85,.25,1)',fill:'both'});
 }
 // HTML-escape untrusted strings (Yahoo search results) before injecting via
 // innerHTML — keeps markup in a ticker symbol or company name from breaking the
@@ -526,7 +473,7 @@ function render(A){
       {l:'MACD '+(macd?.bullish?'↑':'↓'),c:!macd?'neu':macd.bullish?'pos':'neg'},
       {l:'Band '+(bb.bbPct<30?'Low':bb.bbPct>70?'High':'Mid'),c:bb.bbPct<30?'pos':bb.bbPct>70?'neg':'neu'},
       {l:'Stoch '+(stoch<25?'Low':stoch>75?'High':'Ok'),c:stoch<30?'pos':stoch>70?'neg':'neu'},
-      {l:'Vol '+(volSig>0?'✓':volSig<0?'⚠':'–'),c:volSig>0?'pos':volSig<0?'neg':'neu'},
+      {l:'Vol '+(volSig>0?'↑':volSig<0?'↓':'–'),c:volSig>0?'pos':volSig<0?'neg':'neu'},
     ];
     setHTML('scBreakdown',pills.map(p=>`<div class="sc-pill ${p.c}">${p.l}</div>`).join(''));
 
@@ -783,7 +730,11 @@ dd.addEventListener('keydown',e=>{
   const mq=window.matchMedia('(prefers-color-scheme:dark)');
   function isDark(){const t=root.getAttribute('data-theme');return t==='dark'?true:t==='light'?false:mq.matches;}
   const meta=document.querySelector('meta[name="theme-color"]');
-  function apply(){const d=isDark();btn.textContent=d?'☀':'🌙';if(meta)meta.setAttribute('content',d?'#070912':'#eaeefb');}
+  // Monochrome line icons (sun shown in dark mode → click for light, and vice
+  // versa), matching the rest of the icon system. No emoji glyphs.
+  const SUN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.4M12 19.1v2.4M4.3 4.3l1.7 1.7M18 18l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.3 19.7l1.7-1.7M18 6l1.7-1.7"/></svg>';
+  const MOON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.4A8 8 0 1 1 9.6 4 6.3 6.3 0 0 0 20 14.4z"/></svg>';
+  function apply(){const d=isDark();btn.innerHTML=d?SUN:MOON;if(meta)meta.setAttribute('content',d?'#0a0b0f':'#f4f5f7');}
   // The frosted "glass" surfaces use backdrop-filter. When the theme flips,
   // the CSS custom properties change but Safari/WebKit keep the already-
   // rasterised backdrop layer of any on-screen glass element, so cards get
